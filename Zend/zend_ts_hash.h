@@ -2,10 +2,10 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2014 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2015 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
-   | that is bundled with this package in the file LICENSE, and is        | 
+   | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
@@ -64,11 +64,11 @@ ZEND_API zval *_zend_ts_hash_index_add_or_update(TsHashTable *ht, zend_ulong h, 
 ZEND_API zval* zend_ts_hash_add_empty_element(TsHashTable *ht, zend_string *key);
 
 ZEND_API void zend_ts_hash_graceful_destroy(TsHashTable *ht);
-ZEND_API void zend_ts_hash_apply(TsHashTable *ht, apply_func_t apply_func TSRMLS_DC);
-ZEND_API void zend_ts_hash_apply_with_argument(TsHashTable *ht, apply_func_arg_t apply_func, void * TSRMLS_DC);
-ZEND_API void zend_ts_hash_apply_with_arguments(TsHashTable *ht TSRMLS_DC, apply_func_args_t apply_func, int, ...);
+ZEND_API void zend_ts_hash_apply(TsHashTable *ht, apply_func_t apply_func);
+ZEND_API void zend_ts_hash_apply_with_argument(TsHashTable *ht, apply_func_arg_t apply_func, void *);
+ZEND_API void zend_ts_hash_apply_with_arguments(TsHashTable *ht, apply_func_args_t apply_func, int, ...);
 
-ZEND_API void zend_ts_hash_reverse_apply(TsHashTable *ht, apply_func_t apply_func TSRMLS_DC);
+ZEND_API void zend_ts_hash_reverse_apply(TsHashTable *ht, apply_func_t apply_func);
 
 
 /* Deletes */
@@ -88,9 +88,9 @@ ZEND_API void zend_ts_hash_copy(TsHashTable *target, TsHashTable *source, copy_c
 ZEND_API void zend_ts_hash_copy_to_hash(HashTable *target, TsHashTable *source, copy_ctor_func_t pCopyConstructor);
 ZEND_API void zend_ts_hash_merge(TsHashTable *target, TsHashTable *source, copy_ctor_func_t pCopyConstructor, int overwrite);
 ZEND_API void zend_ts_hash_merge_ex(TsHashTable *target, TsHashTable *source, copy_ctor_func_t pCopyConstructor, merge_checker_func_t pMergeSource, void *pParam);
-ZEND_API int zend_ts_hash_sort(TsHashTable *ht, sort_func_t sort_func, compare_func_t compare_func, int renumber TSRMLS_DC);
-ZEND_API int zend_ts_hash_compare(TsHashTable *ht1, TsHashTable *ht2, compare_func_t compar, zend_bool ordered TSRMLS_DC);
-ZEND_API zval *zend_ts_hash_minmax(TsHashTable *ht, compare_func_t compar, int flag TSRMLS_DC);
+ZEND_API int zend_ts_hash_sort(TsHashTable *ht, sort_func_t sort_func, compare_func_t compare_func, int renumber);
+ZEND_API int zend_ts_hash_compare(TsHashTable *ht1, TsHashTable *ht2, compare_func_t compar, zend_bool ordered);
+ZEND_API zval *zend_ts_hash_minmax(TsHashTable *ht, compare_func_t compar, int flag);
 
 ZEND_API int zend_ts_hash_num_elements(TsHashTable *ht);
 
@@ -102,16 +102,16 @@ void zend_ts_hash_display_pListTail(TsHashTable *ht);
 void zend_ts_hash_display(TsHashTable *ht);
 #endif
 
-ZEND_API zval *zend_ts_hash_str_find(TsHashTable *ht, const char *key, int len);
-ZEND_API zval *_zend_ts_hash_str_update(TsHashTable *ht, const char *key, int len, zval *pData ZEND_FILE_LINE_DC);
-ZEND_API zval *_zend_ts_hash_str_add(TsHashTable *ht, const char *key, int len, zval *pData ZEND_FILE_LINE_DC);
+ZEND_API zval *zend_ts_hash_str_find(TsHashTable *ht, const char *key, size_t len);
+ZEND_API zval *_zend_ts_hash_str_update(TsHashTable *ht, const char *key, size_t len, zval *pData ZEND_FILE_LINE_DC);
+ZEND_API zval *_zend_ts_hash_str_add(TsHashTable *ht, const char *key, size_t len, zval *pData ZEND_FILE_LINE_DC);
 
 #define zend_ts_hash_str_update(ht, key, len, pData) \
 		_zend_ts_hash_str_update(ht, key, len, pData ZEND_FILE_LINE_CC)
 #define zend_ts_hash_str_add(ht, key, len, pData) \
 		_zend_ts_hash_str_add(ht, key, len, pData ZEND_FILE_LINE_CC)
 
-static zend_always_inline void *zend_ts_hash_str_find_ptr(TsHashTable *ht, const char *str, int len)
+static zend_always_inline void *zend_ts_hash_str_find_ptr(TsHashTable *ht, const char *str, size_t len)
 {
 	zval *zv;
 
@@ -119,7 +119,7 @@ static zend_always_inline void *zend_ts_hash_str_find_ptr(TsHashTable *ht, const
 	return zv ? Z_PTR_P(zv) : NULL;
 }
 
-static zend_always_inline void *zend_ts_hash_str_update_ptr(TsHashTable *ht, const char *str, int len, void *pData)
+static zend_always_inline void *zend_ts_hash_str_update_ptr(TsHashTable *ht, const char *str, size_t len, void *pData)
 {
 	zval tmp, *zv;
 
@@ -128,7 +128,7 @@ static zend_always_inline void *zend_ts_hash_str_update_ptr(TsHashTable *ht, con
 	return zv ? Z_PTR_P(zv) : NULL;
 }
 
-static zend_always_inline void *zend_ts_hash_str_add_ptr(TsHashTable *ht, const char *str, int len, void *pData)
+static zend_always_inline void *zend_ts_hash_str_add_ptr(TsHashTable *ht, const char *str, size_t len, void *pData)
 {
 	zval tmp, *zv;
 

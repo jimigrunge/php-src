@@ -59,7 +59,7 @@ Type specifiers
  h  - array (returned as HashTable*)
  H  - array or HASH_OF(object) (returned as HashTable*)
  l  - long (zend_long)
- L  - long, limits out-of-range numbers to LONG_MAX/LONG_MIN (zend_long)
+ L  - long, limits out-of-range numbers to LONG_MAX/LONG_MIN (zend_long, ZEND_LONG_MAX/ZEND_LONG_MIN)
  o  - object of any type (zval*)
  O  - object of specific type given by class entry (zval*, zend_class_entry)
  p  - valid path (string without null bytes in the middle) and its length (char*, size_t)
@@ -90,7 +90,7 @@ Note on 64bit compatibility
 ---------------------------
 Please note that since version 7 PHP uses zend_long as integer type and 
 zend_string with size_t as length, so make sure you pass zend_longs to "l" 
-and size_t to strings length (i.e. for "s" you need to pass char * and int), 
+and size_t to strings length (i.e. for "s" you need to pass char * and size_t), 
 not the other way round!
 
 Both mistakes might cause memory corruptions and segfaults:

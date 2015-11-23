@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2014 The PHP Group                                |
+   | Copyright (c) 1997-2015 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -60,7 +60,7 @@ PHPAPI zend_string *php_base64_encode(const unsigned char *str, size_t length) /
 	zend_string *result;
 
 	result = zend_string_alloc(((length + 2) / 3) * 4 * sizeof(char), 0);
-	p = (unsigned char *)result->val;
+	p = (unsigned char *)ZSTR_VAL(result);
 
 	while (length > 2) { /* keep going until we have less than 24 bits */
 		*p++ = base64_table[current[0] >> 2];
@@ -87,7 +87,7 @@ PHPAPI zend_string *php_base64_encode(const unsigned char *str, size_t length) /
 	}
 	*p = '\0';
 
-	result->len = (p - (unsigned char *)result->val);
+	ZSTR_LEN(result) = (p - (unsigned char *)ZSTR_VAL(result));
 
 	return result;
 }
@@ -121,7 +121,7 @@ void php_base64_init(void)
 		ch += 16;
 	}
 	sprintf(sp, "};");
-	php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Reverse_table:\n%s", s);
+	php_error_docref(NULL, E_NOTICE, "Reverse_table:\n%s", s);
 	efree(s);
 }
 */
@@ -170,18 +170,18 @@ PHPAPI zend_string *php_base64_decode_ex(const unsigned char *str, size_t length
 
 		switch(i % 4) {
 		case 0:
-			result->val[j] = ch << 2;
+			ZSTR_VAL(result)[j] = ch << 2;
 			break;
 		case 1:
-			result->val[j++] |= ch >> 4;
-			result->val[j] = (ch & 0x0f) << 4;
+			ZSTR_VAL(result)[j++] |= ch >> 4;
+			ZSTR_VAL(result)[j] = (ch & 0x0f) << 4;
 			break;
 		case 2:
-			result->val[j++] |= ch >>2;
-			result->val[j] = (ch & 0x03) << 6;
+			ZSTR_VAL(result)[j++] |= ch >>2;
+			ZSTR_VAL(result)[j] = (ch & 0x03) << 6;
 			break;
 		case 3:
-			result->val[j++] |= ch;
+			ZSTR_VAL(result)[j++] |= ch;
 			break;
 		}
 		i++;
@@ -197,11 +197,11 @@ PHPAPI zend_string *php_base64_decode_ex(const unsigned char *str, size_t length
 		case 2:
 			k++;
 		case 3:
-			result->val[k] = 0;
+			ZSTR_VAL(result)[k] = 0;
 		}
 	}
-	result->len = j;
-	result->val[result->len] = '\0';
+	ZSTR_LEN(result) = j;
+	ZSTR_VAL(result)[ZSTR_LEN(result)] = '\0';
 
 	return result;
 }
@@ -215,7 +215,7 @@ PHP_FUNCTION(base64_encode)
 	size_t str_len;
 	zend_string *result;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &str, &str_len) == FAILURE) {
 		return;
 	}
 	result = php_base64_encode((unsigned char*)str, str_len);
@@ -236,7 +236,7 @@ PHP_FUNCTION(base64_decode)
 	size_t str_len;
 	zend_string *result;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b", &str, &str_len, &strict) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|b", &str, &str_len, &strict) == FAILURE) {
 		return;
 	}
 	result = php_base64_decode_ex((unsigned char*)str, str_len, strict);

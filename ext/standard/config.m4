@@ -170,7 +170,7 @@ main() {
   ac_cv_crypt_blowfish=no
 ])])
 
-AC_CACHE_CHECK(for SHA512 crypt, ac_cv_crypt_SHA512,[
+AC_CACHE_CHECK(for SHA512 crypt, ac_cv_crypt_sha512,[
 AC_TRY_RUN([
 #if HAVE_UNISTD_H
 #include <unistd.h>
@@ -192,14 +192,14 @@ main() {
 	exit(0);
 #endif
 }],[
-  ac_cv_crypt_SHA512=yes
+  ac_cv_crypt_sha512=yes
 ],[
-  ac_cv_crypt_SHA512=no
+  ac_cv_crypt_sha512=no
 ],[
-  ac_cv_crypt_SHA512=no
+  ac_cv_crypt_sha512=no
 ])])
 
-AC_CACHE_CHECK(for SHA256 crypt, ac_cv_crypt_SHA256,[
+AC_CACHE_CHECK(for SHA256 crypt, ac_cv_crypt_sha256,[
 AC_TRY_RUN([
 #if HAVE_UNISTD_H
 #include <unistd.h>
@@ -222,11 +222,11 @@ main() {
 	exit(0);
 #endif
 }],[
-  ac_cv_crypt_SHA256=yes
+  ac_cv_crypt_sha256=yes
 ],[
-  ac_cv_crypt_SHA256=no
+  ac_cv_crypt_sha256=no
 ],[
-  ac_cv_crypt_SHA256=no
+  ac_cv_crypt_sha256=no
 ])])
 
 
@@ -577,7 +577,7 @@ AC_TRY_COMPILE([
 # include <wchar.h>
 #endif
 ],[
-int __tmp__() { mbstate_t a; }
+mbstate_t a;
 ],[
   ac_cv_type_mbstate_t=yes
 ],[
@@ -593,6 +593,16 @@ dnl
 AC_CHECK_HEADERS([atomic.h])
 
 dnl
+dnl Check for arc4random on BSD systems
+dnl
+AC_CHECK_DECLS([arc4random_buf])
+
+dnl
+dnl Check for getrandom on newer Linux kernels
+dnl
+AC_CHECK_DECLS([getrandom])
+
+dnl
 dnl Setup extension sources
 dnl
 PHP_NEW_EXTENSION(standard, array.c base64.c basic_functions.c browscap.c crc32.c crypt.c \
@@ -605,7 +615,9 @@ PHP_NEW_EXTENSION(standard, array.c base64.c basic_functions.c browscap.c crc32.
                             incomplete_class.c url_scanner_ex.c ftp_fopen_wrapper.c \
                             http_fopen_wrapper.c php_fopen_wrapper.c credits.c css.c \
                             var_unserializer.c ftok.c sha1.c user_filters.c uuencode.c \
-                            filters.c proc_open.c streamsfuncs.c http.c password.c)
+                            filters.c proc_open.c streamsfuncs.c http.c password.c \
+                            random.c,,,
+			    -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1)
 
 PHP_ADD_MAKEFILE_FRAGMENT
 PHP_INSTALL_HEADERS([ext/standard/])

@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 7                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2014 The PHP Group                                |
+  | Copyright (c) 1997-2015 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -44,7 +44,7 @@
 #define TEXTOID     25
 #define OIDOID      26
 
-static int pgsql_stmt_dtor(pdo_stmt_t *stmt TSRMLS_DC)
+static int pgsql_stmt_dtor(pdo_stmt_t *stmt)
 {
 	pdo_pgsql_stmt *S = (pdo_pgsql_stmt*)stmt->driver_data;
 
@@ -113,7 +113,7 @@ static int pgsql_stmt_dtor(pdo_stmt_t *stmt TSRMLS_DC)
 	return 1;
 }
 
-static int pgsql_stmt_execute(pdo_stmt_t *stmt TSRMLS_DC)
+static int pgsql_stmt_execute(pdo_stmt_t *stmt)
 {
 	pdo_pgsql_stmt *S = (pdo_pgsql_stmt*)stmt->driver_data;
 	pdo_pgsql_db_handle *H = S->H;
@@ -224,7 +224,7 @@ stmt_retry:
 		return 0;
 	}
 
-	if (!stmt->executed && !stmt->column_count) {
+	if (!stmt->executed && (!stmt->column_count || S->cols == NULL)) {
 		stmt->column_count = (int) PQnfields(S->result);
 		S->cols = ecalloc(stmt->column_count, sizeof(pdo_pgsql_column));
 	}
@@ -240,7 +240,7 @@ stmt_retry:
 }
 
 static int pgsql_stmt_param_hook(pdo_stmt_t *stmt, struct pdo_bound_param_data *param,
-		enum pdo_param_event event_type TSRMLS_DC)
+		enum pdo_param_event event_type)
 {
 	pdo_pgsql_stmt *S = (pdo_pgsql_stmt*)stmt->driver_data;
 
@@ -255,8 +255,8 @@ static int pgsql_stmt_param_hook(pdo_stmt_t *stmt, struct pdo_bound_param_data *
 			case PDO_PARAM_EVT_NORMALIZE:
 				/* decode name from $1, $2 into 0, 1 etc. */
 				if (param->name) {
-					if (param->name->val[0] == '$') {
-						ZEND_ATOL(param->paramno, param->name->val + 1);
+					if (ZSTR_VAL(param->name)[0] == '$') {
+						ZEND_ATOL(param->paramno, ZSTR_VAL(param->name) + 1);
 					} else {
 						/* resolve parameter name to rewritten name */
 						char *namevar;
@@ -266,7 +266,7 @@ static int pgsql_stmt_param_hook(pdo_stmt_t *stmt, struct pdo_bound_param_data *
 							ZEND_ATOL(param->paramno, namevar + 1);
 							param->paramno--;
 						} else {
-							pdo_raise_impl_error(stmt->dbh, stmt, "HY093", param->name->val TSRMLS_CC);
+							pdo_raise_impl_error(stmt->dbh, stmt, "HY093", ZSTR_VAL(param->name));
 							return 0;
 						}
 					}
@@ -301,8 +301,8 @@ static int pgsql_stmt_param_hook(pdo_stmt_t *stmt, struct pdo_bound_param_data *
 				if (param->paramno >= 0) {
 					zval *parameter;
 
-					if (param->paramno > zend_hash_num_elements(stmt->bound_param_map)) {
-						pdo_pgsql_error_stmt(stmt, PGRES_FATAL_ERROR, "HY105");
+					if (param->paramno >= zend_hash_num_elements(stmt->bound_params)) {
+						pdo_raise_impl_error(stmt->dbh, stmt, "HY093", "parameter was not defined");
 						return 0;
 					}
 
@@ -311,7 +311,7 @@ static int pgsql_stmt_param_hook(pdo_stmt_t *stmt, struct pdo_bound_param_data *
 					} else {
 						parameter = &param->parameter;
 					}
-					
+
 					if (PDO_PARAM_TYPE(param->param_type) == PDO_PARAM_LOB &&
 							Z_TYPE_P(parameter) == IS_RESOURCE) {
 						php_stream *stm;
@@ -376,22 +376,17 @@ static int pgsql_stmt_param_hook(pdo_stmt_t *stmt, struct pdo_bound_param_data *
 		/* We need to manually convert to a pg native boolean value */
 		if (PDO_PARAM_TYPE(param->param_type) == PDO_PARAM_BOOL &&
 			((param->param_type & PDO_PARAM_INPUT_OUTPUT) != PDO_PARAM_INPUT_OUTPUT)) {
-			zval *parameter;
-			if (Z_ISREF(param->parameter)) {
-				parameter = Z_REFVAL(param->parameter);
-			} else {
-				parameter = &param->parameter;
-			}
-			SEPARATE_ZVAL(&param->parameter);
+			const char *s = zend_is_true(&param->parameter) ? "t" : "f";
 			param->param_type = PDO_PARAM_STR;
-			ZVAL_STRINGL(parameter, Z_TYPE_P(parameter) == IS_TRUE ? "t" : "f", 1);
+			zval_ptr_dtor(&param->parameter);
+			ZVAL_STRINGL(&param->parameter, s, 1);
 		}
 	}
 	return 1;
 }
 
 static int pgsql_stmt_fetch(pdo_stmt_t *stmt,
-	enum pdo_fetch_orientation ori, zend_long offset TSRMLS_DC)
+	enum pdo_fetch_orientation ori, zend_long offset)
 {
 	pdo_pgsql_stmt *S = (pdo_pgsql_stmt*)stmt->driver_data;
 
@@ -438,18 +433,19 @@ static int pgsql_stmt_fetch(pdo_stmt_t *stmt,
 	}
 }
 
-static int pgsql_stmt_describe(pdo_stmt_t *stmt, int colno TSRMLS_DC)
+static int pgsql_stmt_describe(pdo_stmt_t *stmt, int colno)
 {
 	pdo_pgsql_stmt *S = (pdo_pgsql_stmt*)stmt->driver_data;
 	struct pdo_column_data *cols = stmt->columns;
 	struct pdo_bound_param_data *param;
+	char *str;
 
 	if (!S->result) {
 		return 0;
 	}
 
-	cols[colno].name = estrdup(PQfname(S->result, colno));
-	cols[colno].namelen = strlen(cols[colno].name);
+	str = PQfname(S->result, colno);
+	cols[colno].name = zend_string_init(str, strlen(str), 0);
 	cols[colno].maxlen = PQfsize(S->result, colno);
 	cols[colno].precision = PQfmod(S->result, colno);
 	S->cols[colno].pgsql_type = PQftype(S->result, colno);
@@ -464,7 +460,7 @@ static int pgsql_stmt_describe(pdo_stmt_t *stmt, int colno TSRMLS_DC)
 			/* did the user bind the column as a LOB ? */
 			if (stmt->bound_columns && (
 					(param = zend_hash_index_find_ptr(stmt->bound_columns, colno)) != NULL ||
-					(param = zend_hash_str_find_ptr(stmt->bound_columns, cols[colno].name, cols[colno].namelen)) != NULL)) {
+					(param = zend_hash_find_ptr(stmt->bound_columns, cols[colno].name)) != NULL)) {
 
 				if (PDO_PARAM_TYPE(param->param_type) == PDO_PARAM_LOB) {
 					cols[colno].param_type = PDO_PARAM_LOB;
@@ -498,7 +494,7 @@ static int pgsql_stmt_describe(pdo_stmt_t *stmt, int colno TSRMLS_DC)
 	return 1;
 }
 
-static int pgsql_stmt_get_col(pdo_stmt_t *stmt, int colno, char **ptr, zend_ulong *len, int *caller_frees  TSRMLS_DC)
+static int pgsql_stmt_get_col(pdo_stmt_t *stmt, int colno, char **ptr, zend_ulong *len, int *caller_frees )
 {
 	pdo_pgsql_stmt *S = (pdo_pgsql_stmt*)stmt->driver_data;
 	struct pdo_column_data *cols = stmt->columns;
@@ -537,7 +533,7 @@ static int pgsql_stmt_get_col(pdo_stmt_t *stmt, int colno, char **ptr, zend_ulon
 					Oid oid = (Oid)strtoul(*ptr, &end_ptr, 10);
 					int loid = lo_open(S->H->server, oid, INV_READ);
 					if (loid >= 0) {
-						*ptr = (char*)pdo_pgsql_create_lob_stream(&stmt->database_object_handle, loid, oid TSRMLS_CC);
+						*ptr = (char*)pdo_pgsql_create_lob_stream(&stmt->database_object_handle, loid, oid);
 						*len = 0;
 						return *ptr ? 1 : 0;
 					}
@@ -577,7 +573,7 @@ static int pgsql_stmt_get_col(pdo_stmt_t *stmt, int colno, char **ptr, zend_ulon
 	return 1;
 }
 
-static int pgsql_stmt_get_column_meta(pdo_stmt_t *stmt, zend_long colno, zval *return_value TSRMLS_DC)
+static int pgsql_stmt_get_column_meta(pdo_stmt_t *stmt, zend_long colno, zval *return_value)
 {
 	pdo_pgsql_stmt *S = (pdo_pgsql_stmt*)stmt->driver_data;
 	PGresult *res;
@@ -620,8 +616,14 @@ done:
 	return 1;
 }
 
-static int pdo_pgsql_stmt_cursor_closer(pdo_stmt_t *stmt TSRMLS_DC)
+static int pdo_pgsql_stmt_cursor_closer(pdo_stmt_t *stmt)
 {
+	pdo_pgsql_stmt *S = (pdo_pgsql_stmt*)stmt->driver_data;
+
+	if (S->cols != NULL){
+		efree(S->cols);
+		S->cols = NULL;
+	}
 	return 1;
 }
 

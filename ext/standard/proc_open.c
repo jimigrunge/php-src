@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2014 The PHP Group                                |
+   | Copyright (c) 1997-2015 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -73,7 +73,7 @@
 static int le_proc_open;
 
 /* {{{ _php_array_to_envp */
-static php_process_env_t _php_array_to_envp(zval *environment, int is_persistent TSRMLS_DC)
+static php_process_env_t _php_array_to_envp(zval *environment, int is_persistent)
 {
 	zval *element;
 	php_process_env_t env;
@@ -82,7 +82,7 @@ static php_process_env_t _php_array_to_envp(zval *environment, int is_persistent
 	char **ep;
 #endif
 	char *p;
-	uint cnt, l, sizeenv=0;
+	size_t cnt, l, sizeenv=0;
 	HashTable *target_hash;
 
 	memset(&env, 0, sizeof(env));
@@ -101,7 +101,7 @@ static php_process_env_t _php_array_to_envp(zval *environment, int is_persistent
 		return env;
 	}
 
-	target_hash = HASH_OF(environment);
+	target_hash = Z_ARRVAL_P(environment);
 	if (!target_hash) {
 		return env;
 	}
@@ -109,7 +109,7 @@ static php_process_env_t _php_array_to_envp(zval *environment, int is_persistent
 	/* first, we have to get the size of all the elements in the hash */
 	ZEND_HASH_FOREACH_STR_KEY_VAL(target_hash, string_key, element) {
 		zend_string *str = zval_get_string(element);
-		uint el_len = str->len;
+		size_t el_len = ZSTR_LEN(str);
 		zend_string_release(str);
 
 		if (el_len == 0) {
@@ -119,10 +119,10 @@ static php_process_env_t _php_array_to_envp(zval *environment, int is_persistent
 		sizeenv += el_len + 1;
 
 		if (string_key) {
-			if (string_key->len == 0) {
+			if (ZSTR_LEN(string_key) == 0) {
 				continue;
 			}
-			sizeenv += string_key->len + 1;
+			sizeenv += ZSTR_LEN(string_key) + 1;
 		}
 	} ZEND_HASH_FOREACH_END();
 
@@ -134,19 +134,19 @@ static php_process_env_t _php_array_to_envp(zval *environment, int is_persistent
 	ZEND_HASH_FOREACH_STR_KEY_VAL(target_hash, string_key, element) {
 		zend_string *str = zval_get_string(element);
 
-		if (str->len == 0) {
+		if (ZSTR_LEN(str) == 0) {
 			goto next_element;
 		}
 
 		if (string_key) {
-			if (string_key->len == 0) {
+			if (ZSTR_LEN(string_key) == 0) {
 				goto next_element;
 			}
 
-			l = string_key->len + str->len + 2;
-			memcpy(p, string_key->val, string_key->len);
+			l = ZSTR_LEN(string_key) + ZSTR_LEN(str) + 2;
+			memcpy(p, ZSTR_VAL(string_key), ZSTR_LEN(string_key));
 			strncat(p, "=", 1);
-			strncat(p, str->val, str->len);
+			strncat(p, ZSTR_VAL(str), ZSTR_LEN(str));
 
 #ifndef PHP_WIN32
 			*ep = p;
@@ -154,12 +154,12 @@ static php_process_env_t _php_array_to_envp(zval *environment, int is_persistent
 #endif
 			p += l;
 		} else {
-			memcpy(p, str->val, str->len);
+			memcpy(p, ZSTR_VAL(str), ZSTR_LEN(str));
 #ifndef PHP_WIN32
 			*ep = p;
 			++ep;
 #endif
-			p += str->len + 1;
+			p += ZSTR_LEN(str) + 1;
 		}
 next_element:
 		zend_string_release(str);
@@ -186,7 +186,7 @@ static void _php_free_envp(php_process_env_t env, int is_persistent)
 /* }}} */
 
 /* {{{ proc_open_rsrc_dtor */
-static void proc_open_rsrc_dtor(zend_resource *rsrc TSRMLS_DC)
+static void proc_open_rsrc_dtor(zend_resource *rsrc)
 {
 	struct php_process_handle *proc = (struct php_process_handle*)rsrc->ptr;
 	int i;
@@ -240,6 +240,7 @@ static void proc_open_rsrc_dtor(zend_resource *rsrc TSRMLS_DC)
 	FG(pclose_ret) = -1;
 #endif
 	_php_free_envp(proc->env, proc->is_persistent);
+	pefree(proc->pipes, proc->is_persistent);
 	pefree(proc->command, proc->is_persistent);
 	pefree(proc, proc->is_persistent);
 
@@ -262,11 +263,13 @@ PHP_FUNCTION(proc_terminate)
 	struct php_process_handle *proc;
 	zend_long sig_no = SIGTERM;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|l", &zproc, &sig_no) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "r|l", &zproc, &sig_no) == FAILURE) {
 		RETURN_FALSE;
 	}
 
-	ZEND_FETCH_RESOURCE(proc, struct php_process_handle *, zproc, -1, "process", le_proc_open);
+	if ((proc = (struct php_process_handle *)zend_fetch_resource(Z_RES_P(zproc), "process", le_proc_open)) == NULL) {
+		RETURN_FALSE;
+	}
 
 #ifdef PHP_WIN32
 	if (TerminateProcess(proc->childHandle, 255)) {
@@ -291,11 +294,13 @@ PHP_FUNCTION(proc_close)
 	zval *zproc;
 	struct php_process_handle *proc;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zproc) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "r", &zproc) == FAILURE) {
 		RETURN_FALSE;
 	}
 
-	ZEND_FETCH_RESOURCE(proc, struct php_process_handle *, zproc, -1, "process", le_proc_open);
+	if ((proc = (struct php_process_handle *)zend_fetch_resource(Z_RES_P(zproc), "process", le_proc_open)) == NULL) {
+		RETURN_FALSE;
+	}
 
 	FG(pclose_wait) = 1;
 	zend_list_close(Z_RES_P(zproc));
@@ -319,11 +324,13 @@ PHP_FUNCTION(proc_get_status)
 	int running = 1, signaled = 0, stopped = 0;
 	int exitcode = -1, termsig = 0, stopsig = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zproc) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "r", &zproc) == FAILURE) {
 		RETURN_FALSE;
 	}
 
-	ZEND_FETCH_RESOURCE(proc, struct php_process_handle *, zproc, -1, "process", le_proc_open);
+	if ((proc = (struct php_process_handle *)zend_fetch_resource(Z_RES_P(zproc), "process", le_proc_open)) == NULL) {
+		RETURN_FALSE;
+	}
 
 	array_init(return_value);
 
@@ -428,7 +435,8 @@ PHP_FUNCTION(proc_open)
 	zval *descitem = NULL;
 	zend_string *str_index;
 	zend_ulong nindex;
-	struct php_proc_open_descriptor_item descriptors[PHP_PROC_OPEN_MAX_DESCRIPTORS];
+	struct php_proc_open_descriptor_item *descriptors = NULL;
+	int ndescriptors_array;
 #ifdef PHP_WIN32
 	PROCESS_INFORMATION pi;
 	HANDLE childHandle;
@@ -453,13 +461,14 @@ PHP_FUNCTION(proc_open)
 #ifdef PHP_WIN32
 	int suppress_errors = 0;
 	int bypass_shell = 0;
+	int blocking_pipes = 0;
 #endif
 #if PHP_CAN_DO_PTS
 	php_file_descriptor_t dev_ptmx = -1;	/* master */
 	php_file_descriptor_t slave_pty = -1;
 #endif
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "saz/|s!a!a!", &command,
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "saz/|s!a!a!", &command,
 				&command_len, &descriptorspec, &pipes, &cwd, &cwd_len, &environment,
 				&other_options) == FAILURE) {
 		RETURN_FALSE;
@@ -482,18 +491,29 @@ PHP_FUNCTION(proc_open)
 				bypass_shell = 1;
 			}
 		}
+
+		item = zend_hash_str_find(Z_ARRVAL_P(other_options), "blocking_pipes", sizeof("blocking_pipes") - 1);
+		if (item != NULL) {
+			if (Z_TYPE_P(item) == IS_TRUE || ((Z_TYPE_P(item) == IS_LONG) && Z_LVAL_P(item))) {
+				blocking_pipes = 1;
+			}
+		}
 	}
 #endif
 
 	command_len = strlen(command);
 
 	if (environment) {
-		env = _php_array_to_envp(environment, is_persistent TSRMLS_CC);
+		env = _php_array_to_envp(environment, is_persistent);
 	} else {
 		memset(&env, 0, sizeof(env));
 	}
 
-	memset(descriptors, 0, sizeof(descriptors));
+	ndescriptors_array = zend_hash_num_elements(Z_ARRVAL_P(descriptorspec));
+
+	descriptors = safe_emalloc(sizeof(struct php_proc_open_descriptor_item), ndescriptors_array, 0);
+
+	memset(descriptors, 0, sizeof(struct php_proc_open_descriptor_item) * ndescriptors_array);
 
 #ifdef PHP_WIN32
 	/* we use this to allow the child to inherit handles */
@@ -508,11 +528,11 @@ PHP_FUNCTION(proc_open)
 		zval *ztype;
 
 		if (str_index) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "descriptor spec must be an integer indexed array");
+			php_error_docref(NULL, E_WARNING, "descriptor spec must be an integer indexed array");
 			goto exit_fail;
 		}
 
-		descriptors[ndesc].index = nindex;
+		descriptors[ndesc].index = (int)nindex;
 
 		if (Z_TYPE_P(descitem) == IS_RESOURCE) {
 			/* should be a stream - try and dup the descriptor */
@@ -526,29 +546,29 @@ PHP_FUNCTION(proc_open)
 			}
 
 #ifdef PHP_WIN32
-			descriptors[ndesc].childend = dup_fd_as_handle(fd);
+			descriptors[ndesc].childend = dup_fd_as_handle((int)fd);
 			if (descriptors[ndesc].childend == NULL) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to dup File-Handle for descriptor %d", nindex);
+				php_error_docref(NULL, E_WARNING, "unable to dup File-Handle for descriptor %d", nindex);
 				goto exit_fail;
 			}
 #else
 			descriptors[ndesc].childend = dup(fd);
 			if (descriptors[ndesc].childend < 0) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to dup File-Handle for descriptor %pd - %s", nindex, strerror(errno));
+				php_error_docref(NULL, E_WARNING, "unable to dup File-Handle for descriptor %pd - %s", nindex, strerror(errno));
 				goto exit_fail;
 			}
 #endif
 			descriptors[ndesc].mode = DESC_FILE;
 
 		} else if (Z_TYPE_P(descitem) != IS_ARRAY) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Descriptor item must be either an array or a File-Handle");
+			php_error_docref(NULL, E_WARNING, "Descriptor item must be either an array or a File-Handle");
 			goto exit_fail;
 		} else {
 
 			if ((ztype = zend_hash_index_find(Z_ARRVAL_P(descitem), 0)) != NULL) {
 				convert_to_string_ex(ztype);
 			} else {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing handle qualifier in array");
+				php_error_docref(NULL, E_WARNING, "Missing handle qualifier in array");
 				goto exit_fail;
 			}
 
@@ -559,14 +579,14 @@ PHP_FUNCTION(proc_open)
 				if ((zmode = zend_hash_index_find(Z_ARRVAL_P(descitem), 1)) != NULL) {
 					convert_to_string_ex(zmode);
 				} else {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing mode parameter for 'pipe'");
+					php_error_docref(NULL, E_WARNING, "Missing mode parameter for 'pipe'");
 					goto exit_fail;
 				}
 
 				descriptors[ndesc].mode = DESC_PIPE;
 
 				if (0 != pipe(newpipe)) {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to create pipe %s", strerror(errno));
+					php_error_docref(NULL, E_WARNING, "unable to create pipe %s", strerror(errno));
 					goto exit_fail;
 				}
 
@@ -598,14 +618,14 @@ PHP_FUNCTION(proc_open)
 				if ((zfile = zend_hash_index_find(Z_ARRVAL_P(descitem), 1)) != NULL) {
 					convert_to_string_ex(zfile);
 				} else {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing file name parameter for 'file'");
+					php_error_docref(NULL, E_WARNING, "Missing file name parameter for 'file'");
 					goto exit_fail;
 				}
 
 				if ((zmode = zend_hash_index_find(Z_ARRVAL_P(descitem), 2)) != NULL) {
 					convert_to_string_ex(zmode);
 				} else {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing mode parameter for 'file'");
+					php_error_docref(NULL, E_WARNING, "Missing mode parameter for 'file'");
 					goto exit_fail;
 				}
 
@@ -621,8 +641,8 @@ PHP_FUNCTION(proc_open)
 				}
 
 #ifdef PHP_WIN32
-				descriptors[ndesc].childend = dup_fd_as_handle(fd);
-				_close(fd);
+				descriptors[ndesc].childend = dup_fd_as_handle((int)fd);
+				_close((int)fd);
 
 				/* simulate the append mode by fseeking to the end of the file
 				this introduces a potential race-condition, but it is the best we can do, though */
@@ -638,7 +658,7 @@ PHP_FUNCTION(proc_open)
 					/* open things up */
 					dev_ptmx = open("/dev/ptmx", O_RDWR);
 					if (dev_ptmx == -1) {
-						php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to open /dev/ptmx, errno %d", errno);
+						php_error_docref(NULL, E_WARNING, "failed to open /dev/ptmx, errno %d", errno);
 						goto exit_fail;
 					}
 					grantpt(dev_ptmx);
@@ -646,7 +666,7 @@ PHP_FUNCTION(proc_open)
 					slave_pty = open(ptsname(dev_ptmx), O_RDWR);
 
 					if (slave_pty == -1) {
-						php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to open slave pty, errno %d", errno);
+						php_error_docref(NULL, E_WARNING, "failed to open slave pty, errno %d", errno);
 						goto exit_fail;
 					}
 				}
@@ -655,17 +675,15 @@ PHP_FUNCTION(proc_open)
 				descriptors[ndesc].parentend = dup(dev_ptmx);
 				descriptors[ndesc].mode_flags = O_RDWR;
 #else
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "pty pseudo terminal not supported on this system");
+				php_error_docref(NULL, E_WARNING, "pty pseudo terminal not supported on this system");
 				goto exit_fail;
 #endif
 			} else {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s is not a valid descriptor spec/mode", Z_STRVAL_P(ztype));
+				php_error_docref(NULL, E_WARNING, "%s is not a valid descriptor spec/mode", Z_STRVAL_P(ztype));
 				goto exit_fail;
 			}
 		}
-
-		if (++ndesc == PHP_PROC_OPEN_MAX_DESCRIPTORS)
-			break;
+		ndesc++;
 	} ZEND_HASH_FOREACH_END();
 
 #ifdef PHP_WIN32
@@ -673,7 +691,7 @@ PHP_FUNCTION(proc_open)
 		char *getcwd_result;
 		getcwd_result = VCWD_GETCWD(cur_cwd, MAXPATHLEN);
 		if (!getcwd_result) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot get current directory");
+			php_error_docref(NULL, E_WARNING, "Cannot get current directory");
 			goto exit_fail;
 		}
 		cwd = cur_cwd;
@@ -738,7 +756,7 @@ PHP_FUNCTION(proc_open)
 				CloseHandle(descriptors[i].parentend);
 			}
 		}
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "CreateProcess failed, error code - %u", dw);
+		php_error_docref(NULL, E_WARNING, "CreateProcess failed, error code - %u", dw);
 		goto exit_fail;
 	}
 
@@ -787,7 +805,7 @@ PHP_FUNCTION(proc_open)
 			if (descriptors[i].parentend)
 				close(descriptors[i].parentend);
 		}
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "procve failed - %s", strerror(errno));
+		php_error_docref(NULL, E_WARNING, "procve failed - %s", strerror(errno));
 		goto exit_fail;
 	}
 #elif HAVE_FORK
@@ -856,7 +874,7 @@ PHP_FUNCTION(proc_open)
 				close(descriptors[i].parentend);
 		}
 
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "fork failed - %s", strerror(errno));
+		php_error_docref(NULL, E_WARNING, "fork failed - %s", strerror(errno));
 
 		goto exit_fail;
 
@@ -869,6 +887,7 @@ PHP_FUNCTION(proc_open)
 	proc = (struct php_process_handle*)pemalloc(sizeof(struct php_process_handle), is_persistent);
 	proc->is_persistent = is_persistent;
 	proc->command = command;
+	proc->pipes = pemalloc(sizeof(zend_resource *) * ndesc, is_persistent);
 	proc->npipes = ndesc;
 	proc->child = child;
 #ifdef PHP_WIN32
@@ -878,7 +897,7 @@ PHP_FUNCTION(proc_open)
 
 	if (pipes != NULL) {
 		zval_dtor(pipes);
-	} 
+	}
 
 	array_init(pipes);
 
@@ -921,6 +940,7 @@ PHP_FUNCTION(proc_open)
 #ifdef PHP_WIN32
 				stream = php_stream_fopen_from_fd(_open_osfhandle((zend_intptr_t)descriptors[i].parentend,
 							descriptors[i].mode_flags), mode_string, NULL);
+				php_stream_set_option(stream, PHP_STREAM_OPTION_PIPE_BLOCKING, blocking_pipes, NULL);
 #else
 				stream = php_stream_fopen_from_fd(descriptors[i].parentend, mode_string, NULL);
 # if defined(F_SETFD) && defined(FD_CLOEXEC)
@@ -946,10 +966,12 @@ PHP_FUNCTION(proc_open)
 		}
 	}
 
-	ZEND_REGISTER_RESOURCE(return_value, proc, le_proc_open);
+	efree(descriptors);
+	ZVAL_RES(return_value, zend_register_resource(proc, le_proc_open));
 	return;
 
 exit_fail:
+	efree(descriptors);
 	_php_free_envp(env, is_persistent);
 	pefree(command, is_persistent);
 #if PHP_CAN_DO_PTS

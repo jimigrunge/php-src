@@ -2,10 +2,10 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2013 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2015 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
-   | that is bundled with this package in the file LICENSE, and is        | 
+   | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
@@ -25,7 +25,7 @@
 #include "main/php_stdint.h"
 
 /* This is the heart of the whole int64 enablement in zval. */
-#if defined(__X86_64__) || defined(__LP64__) || defined(_LP64) || defined(_WIN64)
+#if defined(__x86_64__) || defined(__LP64__) || defined(_LP64) || defined(_WIN64)
 # define ZEND_ENABLE_ZVAL_LONG64 1
 #endif
 
@@ -37,13 +37,8 @@ typedef int64_t zend_off_t;
 # define ZEND_LONG_MAX INT64_MAX
 # define ZEND_LONG_MIN INT64_MIN
 # define ZEND_ULONG_MAX UINT64_MAX
-# ifdef _WIN64
-#   define Z_L(i) i##i64
-#   define Z_UL(i) i##Ui64
-# else
-#   define Z_L(i) i##LL
-#   define Z_UL(i) i##ULL
-# endif
+# define Z_L(i) INT64_C(i)
+# define Z_UL(i) UINT64_C(i)
 # define SIZEOF_ZEND_LONG 8
 #else
 typedef int32_t zend_long;
@@ -66,7 +61,7 @@ typedef int32_t zend_off_t;
 # define ZEND_ULONG_FMT "%" PRIu64
 # define ZEND_LONG_FMT_SPEC PRId64
 # define ZEND_ULONG_FMT_SPEC PRIu64
-# ifdef PHP_WIN32
+# ifdef ZEND_WIN32
 #  define ZEND_LTOA(i, s, len) _i64toa_s((i), (s), (len), 10)
 #  define ZEND_ATOL(i, s) i = _atoi64((s))
 #  define ZEND_STRTOL(s0, s1, base) _strtoi64((s0), (s1), (base))
@@ -94,7 +89,7 @@ typedef int32_t zend_off_t;
 # define ZEND_ULONG_FMT "%" PRIu32
 # define ZEND_LONG_FMT_SPEC PRId32
 # define ZEND_ULONG_FMT_SPEC PRIu32
-# ifdef PHP_WIN32
+# ifdef ZEND_WIN32
 #  define ZEND_LTOA(i, s, len) _ltoa_s((i), (s), (len), 10)
 #  define ZEND_ATOL(i, s) i = atol((s))
 # else

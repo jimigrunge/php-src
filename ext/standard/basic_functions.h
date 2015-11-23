@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2014 The PHP Group                                |
+   | Copyright (c) 1997-2015 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -33,6 +33,10 @@
 #include "zend_highlight.h"
 
 #include "url_scanner_ex.h"
+
+#if defined(_WIN32) && defined(__clang__)
+#include <intrin.h>
+#endif
 
 extern zend_module_entry basic_functions_module;
 #define basic_functions_module_ptr &basic_functions_module
@@ -72,12 +76,12 @@ PHP_FUNCTION(set_time_limit);
 PHP_FUNCTION(header_register_callback);
 
 PHP_FUNCTION(get_cfg_var);
-PHP_FUNCTION(set_magic_quotes_runtime);
 PHP_FUNCTION(get_magic_quotes_runtime);
 PHP_FUNCTION(get_magic_quotes_gpc);
 
 PHP_FUNCTION(error_log);
 PHP_FUNCTION(error_get_last);
+PHP_FUNCTION(error_clear_last);
 
 PHP_FUNCTION(call_user_func);
 PHP_FUNCTION(call_user_func_array);
@@ -141,9 +145,9 @@ PHP_RSHUTDOWN_FUNCTION(user_filters);
 PHP_RSHUTDOWN_FUNCTION(browscap);
 
 /* Left for BC (not binary safe!) */
-PHPAPI int _php_error_log(int opt_err, char *message, char *opt, char *headers TSRMLS_DC);
-PHPAPI int _php_error_log_ex(int opt_err, char *message, int message_len, char *opt, char *headers TSRMLS_DC);
-PHPAPI int php_prefix_varname(zval *result, zval *prefix, char *var_name, int var_name_len, zend_bool add_underscore TSRMLS_DC);
+PHPAPI int _php_error_log(int opt_err, char *message, char *opt, char *headers);
+PHPAPI int _php_error_log_ex(int opt_err, char *message, size_t message_len, char *opt, char *headers);
+PHPAPI int php_prefix_varname(zval *result, zval *prefix, char *var_name, size_t var_name_len, zend_bool add_underscore);
 
 #if SIZEOF_INT == 4
 /* Most 32-bit and 64-bit systems have 32-bit ints */
@@ -164,7 +168,8 @@ typedef struct _php_basic_globals {
 	HashTable putenv_ht;
 	zval  strtok_zval;
 	char *strtok_string;
-	char *locale_string;
+	zend_string *locale_string; /* current LC_CTYPE locale (or NULL for 'C') */
+	zend_bool locale_changed;   /* locale was changed and has to be restored */
 	char *strtok_last;
 	char strtok_table[256];
 	zend_ulong strtok_len;
@@ -176,7 +181,7 @@ typedef struct _php_basic_globals {
 	zend_llist *user_tick_functions;
 
 	zval active_ini_file_section;
-	
+
 	/* pageinfo.c */
 	zend_long page_uid;
 	zend_long page_gid;
@@ -196,7 +201,7 @@ typedef struct _php_basic_globals {
 
 	zend_bool rand_is_seeded; /* Whether rand() has been seeded */
 	zend_bool mt_rand_is_seeded; /* Whether mt_rand() has been seeded */
-    
+
 	/* syslog.c */
 	char *syslog_device;
 
@@ -204,11 +209,11 @@ typedef struct _php_basic_globals {
 	zend_class_entry *incomplete_class;
 	unsigned serialize_lock; /* whether to use the locally supplied var_hash instead (__sleep/__wakeup) */
 	struct {
-		void *var_hash;
+		struct php_serialize_data *data;
 		unsigned level;
 	} serialize;
 	struct {
-		void *var_hash;
+		struct php_unserialize_data *data;
 		unsigned level;
 	} unserialize;
 
@@ -231,7 +236,7 @@ typedef struct _php_basic_globals {
 } php_basic_globals;
 
 #ifdef ZTS
-#define BG(v) TSRMG(basic_globals_id, php_basic_globals *, v)
+#define BG(v) ZEND_TSRMG(basic_globals_id, php_basic_globals *, v)
 PHPAPI extern int basic_globals_id;
 #else
 #define BG(v) (basic_globals.v)
@@ -255,8 +260,12 @@ typedef struct _php_shutdown_function_entry {
 	int arg_count;
 } php_shutdown_function_entry;
 
-PHPAPI extern zend_bool register_user_shutdown_function(char *function_name, size_t function_len, php_shutdown_function_entry *shutdown_function_entry TSRMLS_DC);
-PHPAPI extern zend_bool remove_user_shutdown_function(char *function_name, size_t function_len TSRMLS_DC);
-PHPAPI extern zend_bool append_user_shutdown_function(php_shutdown_function_entry shutdown_function_entry TSRMLS_DC);
+PHPAPI extern zend_bool register_user_shutdown_function(char *function_name, size_t function_len, php_shutdown_function_entry *shutdown_function_entry);
+PHPAPI extern zend_bool remove_user_shutdown_function(char *function_name, size_t function_len);
+PHPAPI extern zend_bool append_user_shutdown_function(php_shutdown_function_entry shutdown_function_entry);
+
+PHPAPI void php_call_shutdown_functions(void);
+PHPAPI void php_free_shutdown_functions(void);
+
 
 #endif /* BASIC_FUNCTIONS_H */

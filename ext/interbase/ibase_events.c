@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2014 The PHP Group                                |
+   | Copyright (c) 1997-2015 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -36,7 +36,7 @@ static void _php_ibase_event_free(char *event_buf, char *result_buf) /* {{{ */
 }
 /* }}} */
 
-void _php_ibase_free_event(ibase_event *event TSRMLS_DC) /* {{{ */
+void _php_ibase_free_event(ibase_event *event) /* {{{ */
 {
 	unsigned short i;
 
@@ -47,7 +47,7 @@ void _php_ibase_free_event(ibase_event *event TSRMLS_DC) /* {{{ */
 
 		if (event->link->handle != NULL &&
 				isc_cancel_events(IB_STATUS, &event->link->handle, &event->event_id)) {
-			_php_ibase_error(TSRMLS_C);
+			_php_ibase_error();
 		}
 
 		/* delete this event from the link struct */
@@ -69,11 +69,11 @@ void _php_ibase_free_event(ibase_event *event TSRMLS_DC) /* {{{ */
 }
 /* }}} */
 
-static void _php_ibase_free_event_rsrc(zend_resource *rsrc TSRMLS_DC) /* {{{ */
+static void _php_ibase_free_event_rsrc(zend_resource *rsrc) /* {{{ */
 {
 	ibase_event *e = (ibase_event *) rsrc->ptr;
 
-	_php_ibase_free_event(e TSRMLS_CC);
+	_php_ibase_free_event(e);
 
 	efree(e);
 }
@@ -81,7 +81,7 @@ static void _php_ibase_free_event_rsrc(zend_resource *rsrc TSRMLS_DC) /* {{{ */
 
 void php_ibase_events_minit(INIT_FUNC_ARGS) /* {{{ */
 {
-	le_event = zend_register_list_destructors_ex(_php_ibase_free_event_rsrc, NULL, 
+	le_event = zend_register_list_destructors_ex(_php_ibase_free_event_rsrc, NULL,
 	    "interbase event", module_number);
 }
 /* }}} */
@@ -137,12 +137,12 @@ PHP_FUNCTION(ibase_wait_event)
 		WRONG_PARAM_COUNT;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "+", &args, &num_args) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "+", &args, &num_args) == FAILURE) {
 		return;
 	}
 
 	if (Z_TYPE(args[0]) == IS_RESOURCE) {
-		if (!ZEND_FETCH_RESOURCE2_NO_RETURN(ib_link, ibase_db_link *, &args[0], -1, "InterBase link", le_link, le_plink)) {
+		if ((ib_link = (ibase_db_link *)zend_fetch_resource2_ex(&args[0], "InterBase link", le_link, le_plink)) == NULL) {
 			efree(args);
 			RETURN_FALSE;
 		}
@@ -152,7 +152,7 @@ PHP_FUNCTION(ibase_wait_event)
 			efree(args);
 			WRONG_PARAM_COUNT;
 		}
-		if (!ZEND_FETCH_RESOURCE2_NO_RETURN(ib_link, ibase_db_link *, NULL, IBG(default_link), "InterBase link", le_link, le_plink)) {
+		if ((ib_link = (ibase_db_link *)zend_fetch_resource2_ex(IBG(default_link), "InterBase link", le_link, le_plink)) == NULL) {
 			efree(args);
 			RETURN_FALSE;
 		}
@@ -168,7 +168,7 @@ PHP_FUNCTION(ibase_wait_event)
 
 	/* now block until an event occurs */
 	if (isc_wait_for_event(IB_STATUS, &ib_link->handle, buffer_size, event_buffer, result_buffer)) {
-		_php_ibase_error(TSRMLS_C);
+		_php_ibase_error();
 		_php_ibase_event_free(event_buffer,result_buffer);
 		efree(args);
 		RETURN_FALSE;
@@ -232,8 +232,8 @@ static isc_callback _php_ibase_callback(ibase_event *event, /* {{{ */
 
 			/* call the callback provided by the user */
 			if (SUCCESS != call_user_function(EG(function_table), NULL,
-					&event->callback, &return_value, 2, args TSRMLS_CC)) {
-				_php_ibase_module_error("Error calling callback %s" TSRMLS_CC, Z_STRVAL(event->callback));
+					&event->callback, &return_value, 2, args)) {
+				_php_ibase_module_error("Error calling callback %s", Z_STRVAL(event->callback));
 				break;
 			}
 
@@ -246,7 +246,7 @@ static isc_callback _php_ibase_callback(ibase_event *event, /* {{{ */
 			if (isc_que_events(IB_STATUS, &event->link->handle, &event->event_id, buffer_size,
 				event->event_buffer,(isc_callback)_php_ibase_callback, (void *)event)) {
 
-				_php_ibase_error(TSRMLS_C);
+				_php_ibase_error();
 			}
 			event->state = ACTIVE;
 	}
@@ -271,13 +271,13 @@ PHP_FUNCTION(ibase_set_event_handler)
 	int link_res_id, num_args;
 
 	RESET_ERRMSG;
-	
+
 	/* Minimum and maximum number of arguments allowed */
 	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 17) {
 		WRONG_PARAM_COUNT;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "+", &args, &num_args) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "+", &args, &num_args) == FAILURE) {
 		return;
 	}
 
@@ -293,7 +293,7 @@ PHP_FUNCTION(ibase_set_event_handler)
 		cb_arg = &args[1];
 		i = 2;
 
-		if (!ZEND_FETCH_RESOURCE2_NO_RETURN(ib_link, ibase_db_link *, &args[0], -1, "InterBase link", le_link, le_plink)) {
+		if ((ib_link = (ibase_db_link *)zend_fetch_resource2_ex(&args[0], "InterBase link", le_link, le_plink)) == NULL) {
 			RETURN_FALSE;
 		}
 
@@ -301,7 +301,7 @@ PHP_FUNCTION(ibase_set_event_handler)
 		link_res_id = Z_LVAL(args[0]);
 
 	} else {
-		/* callback, event_1 [, ... event_15] 
+		/* callback, event_1 [, ... event_15]
 		 * No more than 15 events
 		 */
 		if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 16) {
@@ -310,15 +310,15 @@ PHP_FUNCTION(ibase_set_event_handler)
 
 		cb_arg = &args[0];
 
-		if (!ZEND_FETCH_RESOURCE2_NO_RETURN(ib_link, ibase_db_link *, NULL, IBG(default_link), "InterBase link", le_link, le_plink)) {
+		if ((ib_link = (ibase_db_link *)zend_fetch_resource2_ex(IBG(default_link), "InterBase link", le_link, le_plink)) == NULL) {
 			RETURN_FALSE;
 		}
 		link_res_id = IBG(default_link);
 	}
 
 	/* get the callback */
-	if (!zend_is_callable(cb_arg, 0, &cb_name TSRMLS_CC)) {
-		_php_ibase_module_error("Callback argument %s is not a callable function" TSRMLS_CC, cb_name->val);
+	if (!zend_is_callable(cb_arg, 0, &cb_name)) {
+		_php_ibase_module_error("Callback argument %s is not a callable function", ZSTR_VAL(cb_name));
 		zend_string_release(cb_name);
 		RETURN_FALSE;
 	}
@@ -348,7 +348,7 @@ PHP_FUNCTION(ibase_set_event_handler)
 	if (isc_que_events(IB_STATUS, &ib_link->handle, &event->event_id, buffer_size,
 		event->event_buffer,(isc_callback)_php_ibase_callback, (void *)event)) {
 
-		_php_ibase_error(TSRMLS_C);
+		_php_ibase_error();
 		efree(event);
 		RETURN_FALSE;
 	}
@@ -356,8 +356,8 @@ PHP_FUNCTION(ibase_set_event_handler)
 	event->event_next = ib_link->event_head;
 	ib_link->event_head = event;
 
-	ZEND_REGISTER_RESOURCE(return_value, event, le_event);
-	Z_ADDREF_P(return_value);
+	RETVAL_RES(zend_register_resource(event, le_event));
+	Z_TRY_ADDREF_P(return_value);
 }
 /* }}} */
 
@@ -369,10 +369,10 @@ PHP_FUNCTION(ibase_free_event_handler)
 
 	RESET_ERRMSG;
 
-	if (SUCCESS == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &event_arg)) {
+	if (SUCCESS == zend_parse_parameters(ZEND_NUM_ARGS(), "r", &event_arg)) {
 		ibase_event *event;
 
-		ZEND_FETCH_RESOURCE(event, ibase_event *, event_arg, -1, "Interbase event", le_event);
+		event = (ibase_event *)zend_fetch_resource_ex(event_arg, "Interbase event", le_event);
 
 		event->state = DEAD;
 

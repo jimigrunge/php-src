@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2014 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2015 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -66,7 +66,6 @@ enum _zend_ast_kind {
 	/* 1 child node */
 	ZEND_AST_VAR = 1 << ZEND_AST_NUM_CHILDREN_SHIFT,
 	ZEND_AST_CONST,
-	ZEND_AST_RESOLVE_CLASS_NAME,
 	ZEND_AST_UNPACK,
 	ZEND_AST_UNARY_PLUS,
 	ZEND_AST_UNARY_MINUS,
@@ -84,6 +83,7 @@ enum _zend_ast_kind {
 	ZEND_AST_PRE_DEC,
 	ZEND_AST_POST_INC,
 	ZEND_AST_POST_DEC,
+	ZEND_AST_YIELD_FROM,
 
 	ZEND_AST_GLOBAL,
 	ZEND_AST_UNSET,
@@ -115,6 +115,7 @@ enum _zend_ast_kind {
 	ZEND_AST_NEW,
 	ZEND_AST_INSTANCEOF,
 	ZEND_AST_YIELD,
+	ZEND_AST_COALESCE,
 
 	ZEND_AST_STATIC,
 	ZEND_AST_WHILE,
@@ -123,7 +124,6 @@ enum _zend_ast_kind {
 	ZEND_AST_SWITCH,
 	ZEND_AST_SWITCH_CASE,
 	ZEND_AST_DECLARE,
-	ZEND_AST_PROP_ELEM,
 	ZEND_AST_CONST_ELEM,
 	ZEND_AST_USE_TRAIT,
 	ZEND_AST_TRAIT_PRECEDENCE,
@@ -131,6 +131,7 @@ enum _zend_ast_kind {
 	ZEND_AST_NAMESPACE,
 	ZEND_AST_USE_ELEM,
 	ZEND_AST_TRAIT_ALIAS,
+	ZEND_AST_GROUP_USE,
 
 	/* 3 child nodes */
 	ZEND_AST_METHOD_CALL = 3 << ZEND_AST_NUM_CHILDREN_SHIFT,
@@ -140,6 +141,7 @@ enum _zend_ast_kind {
 	ZEND_AST_TRY,
 	ZEND_AST_CATCH,
 	ZEND_AST_PARAM,
+	ZEND_AST_PROP_ELEM,
 
 	/* 4 child nodes */
 	ZEND_AST_FOR = 4 << ZEND_AST_NUM_CHILDREN_SHIFT,
@@ -182,8 +184,11 @@ typedef struct _zend_ast_decl {
 	unsigned char *lex_pos;
 	zend_string *doc_comment;
 	zend_string *name;
-	zend_ast *child[3];
+	zend_ast *child[4];
 } zend_ast_decl;
+
+typedef void (*zend_ast_process_t)(zend_ast *ast);
+extern ZEND_API zend_ast_process_t zend_ast_process;
 
 ZEND_API zend_ast *zend_ast_create_zval_ex(zval *zv, zend_ast_attr attr);
 
@@ -192,20 +197,21 @@ ZEND_API zend_ast *zend_ast_create(zend_ast_kind kind, ...);
 
 ZEND_API zend_ast *zend_ast_create_decl(
 	zend_ast_kind kind, uint32_t flags, uint32_t start_lineno, zend_string *doc_comment,
-	zend_string *name, zend_ast *child0, zend_ast *child1, zend_ast *child2
+	zend_string *name, zend_ast *child0, zend_ast *child1, zend_ast *child2, zend_ast *child3
 );
 
 ZEND_API zend_ast *zend_ast_create_list(uint32_t init_children, zend_ast_kind kind, ...);
 ZEND_API zend_ast *zend_ast_list_add(zend_ast *list, zend_ast *op);
 
-ZEND_API void zend_ast_evaluate(zval *result, zend_ast *ast, zend_class_entry *scope TSRMLS_DC);
+ZEND_API int zend_ast_evaluate(zval *result, zend_ast *ast, zend_class_entry *scope);
+ZEND_API zend_string *zend_ast_export(const char *prefix, zend_ast *ast, const char *suffix);
 
 ZEND_API zend_ast *zend_ast_copy(zend_ast *ast);
 ZEND_API void zend_ast_destroy(zend_ast *ast);
 ZEND_API void zend_ast_destroy_and_free(zend_ast *ast);
 
-typedef void (*zend_ast_apply_func)(zend_ast **ast_ptr TSRMLS_DC);
-ZEND_API void zend_ast_apply(zend_ast *ast, zend_ast_apply_func fn TSRMLS_DC);
+typedef void (*zend_ast_apply_func)(zend_ast **ast_ptr);
+ZEND_API void zend_ast_apply(zend_ast *ast, zend_ast_apply_func fn);
 
 static zend_always_inline zend_bool zend_ast_is_list(zend_ast *ast) {
 	return (ast->kind >> ZEND_AST_IS_LIST_SHIFT) & 1;
@@ -220,7 +226,9 @@ static zend_always_inline zval *zend_ast_get_zval(zend_ast *ast) {
 	return &((zend_ast_zval *) ast)->val;
 }
 static zend_always_inline zend_string *zend_ast_get_str(zend_ast *ast) {
-	return Z_STR_P(zend_ast_get_zval(ast));
+	zval *zv = zend_ast_get_zval(ast);
+	ZEND_ASSERT(Z_TYPE_P(zv) == IS_STRING);
+	return Z_STR_P(zv);
 }
 
 static zend_always_inline uint32_t zend_ast_get_num_children(zend_ast *ast) {

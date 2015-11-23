@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2014 The PHP Group                                |
+   | Copyright (c) 1997-2015 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -98,7 +98,13 @@
 #define PHP_STD_DES_CRYPT 1
 #endif
 
-#define PHP_CRYPT_RAND php_rand(TSRMLS_C)
+#define PHP_CRYPT_RAND php_rand()
+
+/* Used to check DES salts to ensure that they contain only valid characters */
+#define IS_VALID_SALT_CHARACTER(c) (((c) >= '.' && (c) <= '9') || ((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && (c) <= 'z'))
+
+#define DES_INVALID_SALT_ERROR "Supplied salt is not valid for DES. Possible bug in provided salt format."
+
 
 PHP_MINIT_FUNCTION(crypt) /* {{{ */
 {
@@ -145,11 +151,11 @@ static void php_to64(char *s, zend_long v, int n) /* {{{ */
 }
 /* }}} */
 
-PHPAPI zend_string *php_crypt(const char *password, const int pass_len, const char *salt, int salt_len)
+PHPAPI zend_string *php_crypt(const char *password, const int pass_len, const char *salt, int salt_len, zend_bool quiet)
 {
 	char *crypt_res;
 	zend_string *result;
-/* Windows (win32/crypt) has a stripped down version of libxcrypt and 
+/* Windows (win32/crypt) has a stripped down version of libxcrypt and
 	a CryptoApi md5_crypt implementation */
 #if PHP_USE_PHP_CRYPT_R
 	{
@@ -196,11 +202,7 @@ PHPAPI zend_string *php_crypt(const char *password, const int pass_len, const ch
 		} else if (
 				salt[0] == '$' &&
 				salt[1] == '2' &&
-				salt[2] >= 'a' && salt[2] <= 'z' &&
-				salt[3] == '$' &&
-				salt[4] >= '0' && salt[4] <= '3' &&
-				salt[5] >= '0' && salt[5] <= '9' &&
-				salt[6] == '$') {
+				salt[3] == '$') {
 			char output[PHP_MAX_SALT_LEN + 1];
 
 			memset(output, 0, PHP_MAX_SALT_LEN + 1);
@@ -214,12 +216,27 @@ PHPAPI zend_string *php_crypt(const char *password, const int pass_len, const ch
 				ZEND_SECURE_ZERO(output, PHP_MAX_SALT_LEN + 1);
 				return result;
 			}
+        } else if (salt[0] == '*' && (salt[1] == '0' || salt[1] == '1')) {
+            return NULL;
 		} else {
+			/* DES Fallback */
+
+			/* Only check the salt if it's not EXT_DES */
+			if (salt[0] != '_') {
+				/* DES style hashes */
+				if (!IS_VALID_SALT_CHARACTER(salt[0]) || !IS_VALID_SALT_CHARACTER(salt[1])) {
+					if (!quiet) {
+						/* error consistently about invalid DES fallbacks */
+						php_error_docref(NULL, E_DEPRECATED, DES_INVALID_SALT_ERROR);
+					}
+				}
+			}
+
 			memset(&buffer, 0, sizeof(buffer));
 			_crypt_extended_init_r();
 
 			crypt_res = _crypt_extended_r(password, salt, &buffer);
-			if (!crypt_res) {
+			if (!crypt_res || (salt[0] == '*' && salt[1] == '0')) {
 				return NULL;
 			} else {
 				result = zend_string_init(crypt_res, strlen(crypt_res), 0);
@@ -239,9 +256,15 @@ PHPAPI zend_string *php_crypt(const char *password, const int pass_len, const ch
 #  else
 #    error Data struct used by crypt_r() is unknown. Please report.
 #  endif
+		if (salt[0] != '$' && salt[0] != '_' && (!IS_VALID_SALT_CHARACTER(salt[0]) || !IS_VALID_SALT_CHARACTER(salt[1]))) {
+			if (!quiet) {
+				/* error consistently about invalid DES fallbacks */
+				php_error_docref(NULL, E_DEPRECATED, DES_INVALID_SALT_ERROR);
+			}
+		}
 		crypt_res = crypt_r(password, salt, &buffer);
-		if (!crypt_res) {
-			return FAILURE;
+		if (!crypt_res || (salt[0] == '*' && salt[1] == '0')) {
+			return NULL;
 		} else {
 			result = zend_string_init(crypt_res, strlen(crypt_res), 0);
 			return result;
@@ -268,14 +291,14 @@ PHP_FUNCTION(crypt)
 	 * available (passing always 2-character salt). At least for glibc6.1 */
 	memset(&salt[1], '$', PHP_MAX_SALT_LEN - 1);
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &str, &str_len, &salt_in, &salt_in_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|s", &str, &str_len, &salt_in, &salt_in_len) == FAILURE) {
 		return;
 	}
 
 	if (salt_in) {
 		memcpy(salt, salt_in, MIN(PHP_MAX_SALT_LEN, salt_in_len));
 	} else {
-		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "No salt parameter was specified. You must use a randomly generated salt and a strong hash function to produce a secure hash.");
+		php_error_docref(NULL, E_NOTICE, "No salt parameter was specified. You must use a randomly generated salt and a strong hash function to produce a secure hash.");
 	}
 
 	/* The automatic salt generation covers standard DES, md5-crypt and Blowfish (simple) */
@@ -295,7 +318,7 @@ PHP_FUNCTION(crypt)
 	}
 	salt[salt_in_len] = '\0';
 
-	if ((result = php_crypt(str, str_len, salt, salt_in_len)) == NULL) {
+	if ((result = php_crypt(str, (int)str_len, salt, (int)salt_in_len, 0)) == NULL) {
 		if (salt[0] == '*' && salt[1] == '0') {
 			RETURN_STRING("*1");
 		} else {

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2014 The PHP Group                                |
+   | Copyright (c) 1997-2015 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -31,7 +31,7 @@ sprintf  offers the ability to make a lot of failures since it does not know
 
 snprintf knows the buffers size and will not write behind it. But you will
          have to use either a static buffer or allocate a dynamic buffer
-         before beeing able to call the function. In other words you must
+         before being able to call the function. In other words you must
          be sure that you really know the maximum size of the buffer required.
          A bad thing is having a big maximum while in most cases you would
          only need a small buffer. If the size of the resulting string is
@@ -153,10 +153,10 @@ typedef enum {
 typedef WIDE_INT wide_int;
 typedef unsigned WIDE_INT u_wide_int;
 
-extern char * ap_php_conv_10(register wide_int num, register bool_int is_unsigned,
+PHPAPI char * ap_php_conv_10(register wide_int num, register bool_int is_unsigned,
 	   register bool_int * is_negative, char *buf_end, register size_t *len);
 
-extern char * ap_php_conv_p2(register u_wide_int num, register int nbits,
+PHPAPI char * ap_php_conv_p2(register u_wide_int num, register int nbits,
 		 char format, char *buf_end, register size_t *len);
 
 /* The maximum precision that's allowed for float conversion. Does not include

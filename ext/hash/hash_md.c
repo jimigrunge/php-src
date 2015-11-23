@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 7                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2014 The PHP Group                                |
+  | Copyright (c) 1997-2015 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -111,11 +111,11 @@ PHP_NAMED_FUNCTION(php_if_md5)
 	char md5str[33];
 	PHP_MD5_CTX context;
 	unsigned char digest[16];
-	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b", &arg, &arg_len, &raw_output) == FAILURE) {
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|b", &arg, &arg_len, &raw_output) == FAILURE) {
 		return;
 	}
-	
+
 	md5str[0] = '\0';
 	PHP_MD5Init(&context);
 	PHP_MD5Update(&context, arg, arg_len);
@@ -135,7 +135,7 @@ PHP_NAMED_FUNCTION(php_if_md5)
 PHP_NAMED_FUNCTION(php_if_md5_file)
 {
 	char          *arg;
-	int           arg_len;
+	size_t        arg_len;
 	zend_bool raw_output = 0;
 	char          md5str[33];
 	unsigned char buf[1024];
@@ -144,10 +144,10 @@ PHP_NAMED_FUNCTION(php_if_md5_file)
 	int           n;
 	php_stream    *stream;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "p|b", &arg, &arg_len, &raw_output) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "p|b", &arg, &arg_len, &raw_output) == FAILURE) {
 		return;
 	}
-	
+
 	stream = php_stream_open_wrapper(arg, "rb", REPORT_ERRORS, NULL);
 	if (!stream) {
 		RETURN_FALSE;

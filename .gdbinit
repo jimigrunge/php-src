@@ -53,11 +53,11 @@ define dump_bt
 		printf "[%p] ", $ex
 		set $func = $ex->func
 		if $func
-			if $ex->object
+			if $ex->This->value.obj
 				if $func->common.scope
 					printf "%s->", $func->common.scope->name->val
 				else
-					printf "%s->", $ex->object->ce.name->val
+					printf "%s->", $ex->This->value.obj->ce.name->val
 				end
 			else
 				if $func->common.scope
@@ -73,7 +73,7 @@ define dump_bt
 
 			set $callFrameSize = (sizeof(zend_execute_data) + sizeof(zval) - 1) / sizeof(zval)
 
-			set $count = $ex->num_args
+			set $count = $ex->This.u2.num_args
 			set $arg = 0
 			while $arg < $count
 				if $arg > 0
@@ -101,7 +101,7 @@ define dump_bt
 					____print_str $zvalue->value.str->val $zvalue->value.str->len
 				end
 				if $type == 7
-					printf "array(%d)[%p]", $zvalue->value.arr->ht->nNumOfElements, $zvalue
+					printf "array(%d)[%p]", $zvalue->value.arr->nNumOfElements, $zvalue
 				end
 				if $type == 8
 					printf "object[%p]", $zvalue
@@ -152,8 +152,8 @@ define ____printzv_contents
 	set $type = $zvalue->u1.v.type
 
 	# 15 == IS_INDIRECT
-	if $type >= 5 && $type != 15
-		printf "(refcount=%d) ", $zvalue->value.counted->refcount
+	if $type > 5 && $type != 15
+		printf "(refcount=%d) ", $zvalue->value.counted->gc.refcount
 	end
 
 	if $type == 0
@@ -181,7 +181,7 @@ define ____printzv_contents
 		printf "array: "
 		if ! $arg1
 			set $ind = $ind + 1
-			____print_ht $zvalue->value.ht 1
+			____print_ht $zvalue->value.arr 1
 			set $ind = $ind - 1
 			set $i = $ind
 			while $i > 0

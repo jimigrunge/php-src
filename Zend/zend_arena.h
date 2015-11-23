@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2014 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2015 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -62,7 +62,7 @@ static zend_always_inline void* zend_arena_alloc(zend_arena **arena_ptr, size_t 
 	if (EXPECTED(size <= (size_t)(arena->end - ptr))) {
 		arena->ptr = ptr + size;
 	} else {
-		size_t arena_size = 
+		size_t arena_size =
 			UNEXPECTED((size + ZEND_MM_ALIGNED_SIZE(sizeof(zend_arena))) > (size_t)(arena->end - (char*) arena)) ?
 				(size + ZEND_MM_ALIGNED_SIZE(sizeof(zend_arena))) :
 				(size_t)(arena->end - (char*) arena);
@@ -72,7 +72,7 @@ static zend_always_inline void* zend_arena_alloc(zend_arena **arena_ptr, size_t 
 		new_arena->ptr = (char*) new_arena + ZEND_MM_ALIGNED_SIZE(sizeof(zend_arena)) + size;
 		new_arena->end = (char*) new_arena + arena_size;
 		new_arena->prev = arena;
-		*arena_ptr = new_arena;				
+		*arena_ptr = new_arena;
 	}
 
 	return (void*) ptr;

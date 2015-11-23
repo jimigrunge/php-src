@@ -41,8 +41,8 @@
 	downscaling using the fixed point implementations are usually much faster
 	than the existing gdImageCopyResampled while having a similar or better
 	quality.
-	
-	For image rotations, the optimized versions have a lazy antialiasing for 
+
+	For image rotations, the optimized versions have a lazy antialiasing for
 	the edges of the images. For a much better antialiased result, the affine
 	function is recommended.
 */
@@ -635,7 +635,7 @@ static inline int _color_blend (const int dst, const int src)
 	}
 }
 
-static inline int _setEdgePixel(const gdImagePtr src, unsigned int x, unsigned int y, gdFixed coverage, const int bgColor) 
+static inline int _setEdgePixel(const gdImagePtr src, unsigned int x, unsigned int y, gdFixed coverage, const int bgColor)
 {
 	const gdFixed f_127 = gd_itofx(127);
 	register int c = src->tpixels[y][x];
@@ -1059,6 +1059,11 @@ gdImagePtr gdImageScaleTwoPass(const gdImagePtr src, const unsigned int src_widt
 	gdImagePtr tmp_im;
 	gdImagePtr dst;
 
+	/* Convert to truecolor if it isn't; this code requires it. */
+	if (!src->trueColor) {
+		gdImagePaletteToTrueColor(src);
+	}
+
 	tmp_im = gdImageCreateTrueColor(new_width, src_height);
 	if (tmp_im == NULL) {
 		return NULL;
@@ -1068,12 +1073,12 @@ gdImagePtr gdImageScaleTwoPass(const gdImagePtr src, const unsigned int src_widt
 
 	dst = gdImageCreateTrueColor(new_width, new_height);
 	if (dst == NULL) {
-		gdFree(tmp_im);
+		gdImageDestroy(tmp_im);
 		return NULL;
 	}
 	gdImageSetInterpolationMethod(dst, src->interpolation_id);
 	_gdScaleVert(tmp_im, new_width, src_height, dst, new_width, new_height);
-	gdFree(tmp_im);
+	gdImageDestroy(tmp_im);
 
 	return dst;
 }
@@ -2173,10 +2178,13 @@ gdImagePtr gdImageRotateInterpolated(const gdImagePtr src, const float angle, in
 
 	/* no interpolation needed here */
 	switch (angle_rounded) {
-		case 9000:
+		case -27000:
+		case   9000:
 			return gdImageRotate90(src, 0);
-		case 18000:
+		case -18000:
+		case  18000:
 			return gdImageRotate180(src, 0);
+		case -9000:
 		case 27000:
 			return gdImageRotate270(src, 0);
 	}
@@ -2276,7 +2284,7 @@ int gdTransformAffineGetImage(gdImagePtr *dst,
 	if (!src->trueColor) {
 		gdImagePaletteToTrueColor(src);
 	}
-	
+
 	/* Translate to dst origin (0,0) */
 	gdAffineTranslate(m, -bbox.x, -bbox.y);
 	gdAffineConcat(m, affine, m);
@@ -2335,7 +2343,7 @@ int gdTransformAffineCopy(gdImagePtr dst,
 	if (src->interpolation_id == GD_BILINEAR_FIXED || src->interpolation_id == GD_BICUBIC_FIXED || src->interpolation_id == GD_NEAREST_NEIGHBOUR) {
 		interpolation_id_bak = src->interpolation_id;
 		interpolation_bak = src->interpolation;
-		
+
 		gdImageSetInterpolationMethod(src, GD_BICUBIC);
 	}
 

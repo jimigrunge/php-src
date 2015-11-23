@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2014 The PHP Group                                |
+   | Copyright (c) 1997-2015 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -122,7 +122,7 @@
 	char *__t = zend_print##func##_to_buf(__b + sizeof(__b) - 1, (num));	\
 	smart_string_appendl_ex((dest), __t, __b + sizeof(__b) - 1 - __t, (type));	\
 } while (0)
-	
+
 #define smart_string_append_unsigned_ex(dest, num, type) \
 	smart_string_append_generic_ex((dest), (num), (type), zend_ulong, _ulong)
 

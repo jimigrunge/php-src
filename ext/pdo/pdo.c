@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 7                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2014 The PHP Group                                |
+  | Copyright (c) 1997-2015 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -77,7 +77,7 @@ PDO_API char *php_pdo_str_tolower_dup(const char *src, int len) /* {{{ */
 }
 /* }}} */
 
-PDO_API zend_class_entry *php_pdo_get_exception_base(int root TSRMLS_DC) /* {{{ */
+PDO_API zend_class_entry *php_pdo_get_exception_base(int root) /* {{{ */
 {
 #if defined(HAVE_SPL)
 	if (!root) {
@@ -93,7 +93,7 @@ PDO_API zend_class_entry *php_pdo_get_exception_base(int root TSRMLS_DC) /* {{{ 
 		}
 	}
 #endif
-	return zend_exception_get_default(TSRMLS_C);
+	return zend_ce_exception;
 }
 /* }}} */
 
@@ -106,7 +106,7 @@ PHP_FUNCTION(pdo_drivers)
 	if (zend_parse_parameters_none() == FAILURE) {
 		return;
 	}
-	
+
 	array_init(return_value);
 
 	ZEND_HASH_FOREACH_PTR(&pdo_driver_hash, pdriver) {
@@ -140,12 +140,8 @@ static const zend_module_dep pdo_deps[] = {
 
 /* {{{ pdo_module_entry */
 zend_module_entry pdo_module_entry = {
-#if ZEND_MODULE_API_NO >= 20050922
 	STANDARD_MODULE_HEADER_EX, NULL,
 	pdo_deps,
-#else
-	STANDARD_MODULE_HEADER,
-#endif
 	"PDO",
 	pdo_functions,
 	PHP_MINIT(pdo),
@@ -153,7 +149,7 @@ zend_module_entry pdo_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(pdo),
-	"1.0.4dev",
+	PHP_PDO_VERSION,
 	PHP_MODULE_GLOBALS(pdo),
 	PHP_GINIT(pdo),
 	NULL,
@@ -246,7 +242,7 @@ PDO_API int php_pdo_parse_data_source(const char *data_source, zend_ulong data_s
 					semi = i++;
 					break;
 				} else {
-					n_semicolumns++; 
+					n_semicolumns++;
 					i += 2;
 					continue;
 				}
@@ -273,7 +269,7 @@ PDO_API int php_pdo_parse_data_source(const char *data_source, zend_ulong data_s
 					int vlen = semi - valstart;
 					const char *orig_val = data_source + valstart;
 					char *new_val  = (char *) emalloc(vlen - n_semicolumns + 1);
-				
+
 					parsed[j].optval = new_val;
 
 					while (vlen && *orig_val) {
@@ -281,7 +277,7 @@ PDO_API int php_pdo_parse_data_source(const char *data_source, zend_ulong data_s
 						new_val++;
 
 						if (*orig_val == ';') {
-							orig_val+=2; 
+							orig_val+=2;
 							vlen-=2;
 						} else {
 							orig_val++;
@@ -309,7 +305,7 @@ PDO_API int php_pdo_parse_data_source(const char *data_source, zend_ulong data_s
 /* }}} */
 
 static const char digit_vec[] = "0123456789";
-PDO_API char *php_pdo_int64_to_str(pdo_int64_t i64 TSRMLS_DC) /* {{{ */
+PDO_API char *php_pdo_int64_to_str(pdo_int64_t i64) /* {{{ */
 {
 	char buffer[65];
 	char outbuf[65] = "";
@@ -368,12 +364,12 @@ PHP_MINIT_FUNCTION(pdo)
 
 	INIT_CLASS_ENTRY(ce, "PDOException", NULL);
 
- 	pdo_exception_ce = zend_register_internal_class_ex(&ce, php_pdo_get_exception_base(0 TSRMLS_CC) TSRMLS_CC);
+ 	pdo_exception_ce = zend_register_internal_class_ex(&ce, php_pdo_get_exception_base(0));
 
-	zend_declare_property_null(pdo_exception_ce, "errorInfo", sizeof("errorInfo")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(pdo_exception_ce, "errorInfo", sizeof("errorInfo")-1, ZEND_ACC_PUBLIC);
 
-	pdo_dbh_init(TSRMLS_C);
-	pdo_stmt_init(TSRMLS_C);
+	pdo_dbh_init();
+	pdo_stmt_init();
 
 	return SUCCESS;
 }
@@ -393,7 +389,7 @@ PHP_MINFO_FUNCTION(pdo)
 {
 	char *drivers = NULL, *ldrivers = estrdup("");
 	pdo_driver_t *pdriver;
-	
+
 	php_info_print_table_start();
 	php_info_print_table_header(2, "PDO support", "enabled");
 
@@ -402,7 +398,7 @@ PHP_MINFO_FUNCTION(pdo)
 		efree(ldrivers);
 		ldrivers = drivers;
 	} ZEND_HASH_FOREACH_END();
-	
+
 	php_info_print_table_row(2, "PDO drivers", drivers ? drivers + 2 : "");
 
 	if (drivers) {

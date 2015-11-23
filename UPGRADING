@@ -1,6 +1,4 @@
-$Id$
-
-PHP X.Y UPGRADE NOTES
+PHP 7.1 UPGRADE NOTES
 
 1. Backward Incompatible Changes
 2. New Features
@@ -9,7 +7,7 @@ PHP X.Y UPGRADE NOTES
 5. Changed Functions
 6. New Functions
 7. New Classes and Interfaces
-8. Removed Extensions
+8. Removed Extensions and SAPIs
 9. Other Changes to Extensions
 10. New Global Constants
 11. Changes to INI File Handling
@@ -20,78 +18,53 @@ PHP X.Y UPGRADE NOTES
 ========================================
 1. Backward Incompatible Changes
 ========================================
-
-- Core
-  . Bitwise shifts by negative numbers of bits are disallowed (throws E_WARNING
-    and gives FALSE, like a division by zero).
-  . Left bitwise shifts by a number of bits beyond the bit width of an integer
-    will always result in 0, even on CPUs which wrap around.
-  . Right bitwise shifts by a number of bits beyond the bit width of an integer
-    will always result in 0 or -1 (depending on sign), even on CPUs which wrap
-    around.
-
-- DBA
-  . dba_delete() now returns false if the key was not found for the inifile 
-    handler, too.
+- Core:
+  . 'void' can no longer be used as the name of a class, interface, or trait.
+    This applies to declarations, class_alias() and use statements.
 
 ========================================
 2. New Features
 ========================================
-
 - Core
-  . Support for strings with length >= 2^31 bytes in 64 bit builds
-  . Closure::apply() method added
-
-- Standard
-  . intdiv() function for integer division added.
+  . Added void return type, which requires that a function not return a value.
+    (RFC: https://wiki.php.net/rfc/void_return_type)
 
 ========================================
 3. Changes in SAPI modules
 ========================================
 
-- FPM
-  . Fixed bug #65933 (Cannot specify config lines longer than 1024 bytes).
-
 ========================================
 4. Deprecated Functionality
 ========================================
 
-
 ========================================
 5. Changed Functions
 ========================================
-
-- parse_ini_file():
-- parse_ini_string():
-  Added scanner mode INI_SCANNER_TYPED to yield typed .ini values.
-
+- get_headers() has an extra parameter which allows passing a custom stream
+  context.
+- The first $varname argument for getenv() is no longer mandatory, the
+  current environment variables will be returned as an associative array
+  when omitted.
 
 ========================================
 6. New Functions
 ========================================
 
-
 ========================================
 7. New Classes and Interfaces
 ========================================
 
-
 ========================================
-8. Removed Extensions
+8. Removed Extensions and SAPIs
 ========================================
-
 
 ========================================
 9. Other Changes to Extensions
 ========================================
 
-
 ========================================
 10. New Global Constants
 ========================================
-
-- Core
-  . PHP_INT_MIN added.
 
 ========================================
 11. Changes to INI File Handling
@@ -101,17 +74,10 @@ PHP X.Y UPGRADE NOTES
 12. Windows Support
 ========================================
 
-- Core
-  . Support for native 64 bit integers in 64 bit builds
-  . Support for large files in 64 bit builds
+- Core:
+  . Support for ftok()
 
 ========================================
 13. Other Changes
 ========================================
 
-- Core
-  . Instead of being undefined and platform-dependant, NaN and Infinity will
-    always be zero when casted to integer.
-
-- Standard
-  . call_user_method() and call_user_method_array() no longer exists.

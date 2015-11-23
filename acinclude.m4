@@ -940,7 +940,7 @@ dnl PHP_NEW_EXTENSION(extname, sources [, shared [, sapi_class [, extra-cflags [
 dnl
 dnl Includes an extension in the build.
 dnl
-dnl "extname" is the name of the ext/ subdir where the extension resides.
+dnl "extname" is the name of the extension.
 dnl "sources" is a list of files relative to the subdir which are used
 dnl to build the extension.
 dnl "shared" can be set to "shared" or "yes" to build the extension as
@@ -953,22 +953,23 @@ dnl "zend_ext" indicates a zend extension.
 AC_DEFUN([PHP_NEW_EXTENSION],[
   ext_builddir=[]PHP_EXT_BUILDDIR($1)
   ext_srcdir=[]PHP_EXT_SRCDIR($1)
+  ext_dir=[]PHP_EXT_DIR($1)
 
   ifelse($5,,ac_extra=,[ac_extra=`echo "$5"|$SED s#@ext_srcdir@#$ext_srcdir#g|$SED s#@ext_builddir@#$ext_builddir#g`])
 
   if test "$3" != "shared" && test "$3" != "yes" && test "$4" != "cli"; then
 dnl ---------------------------------------------- Static module
     [PHP_]translit($1,a-z_-,A-Z__)[_SHARED]=no
-    PHP_ADD_SOURCES(PHP_EXT_DIR($1),$2,$ac_extra,)
-    EXT_STATIC="$EXT_STATIC $1"
+    PHP_ADD_SOURCES($ext_dir,$2,$ac_extra,)
+    EXT_STATIC="$EXT_STATIC $1;$ext_dir"
     if test "$3" != "nocli"; then
-      EXT_CLI_STATIC="$EXT_CLI_STATIC $1"
+      EXT_CLI_STATIC="$EXT_CLI_STATIC $1;$ext_dir"
     fi
   else
     if test "$3" = "shared" || test "$3" = "yes"; then
 dnl ---------------------------------------------- Shared module
       [PHP_]translit($1,a-z_-,A-Z__)[_SHARED]=yes
-      PHP_ADD_SOURCES_X(PHP_EXT_DIR($1),$2,$ac_extra,shared_objects_$1,yes)
+      PHP_ADD_SOURCES_X($ext_dir,$2,$ac_extra,shared_objects_$1,yes)
       case $host_alias in
         *netware*[)]
           PHP_SHARED_MODULE(php$1,shared_objects_$1, $ext_builddir, $6, $7)
@@ -986,14 +987,14 @@ dnl ---------------------------------------------- CLI static module
     [PHP_]translit($1,a-z_-,A-Z__)[_SHARED]=no
     case "$PHP_SAPI" in
       cgi|embed[)]
-        PHP_ADD_SOURCES(PHP_EXT_DIR($1),$2,$ac_extra,)
-        EXT_STATIC="$EXT_STATIC $1"
+        PHP_ADD_SOURCES($ext_dir,$2,$ac_extra,)
+        EXT_STATIC="$EXT_STATIC $1;$ext_dir"
         ;;
       *[)]
-        PHP_ADD_SOURCES(PHP_EXT_DIR($1),$2,$ac_extra,cli)
+        PHP_ADD_SOURCES($ext_dir,$2,$ac_extra,cli)
         ;;
     esac
-    EXT_CLI_STATIC="$EXT_CLI_STATIC $1"
+    EXT_CLI_STATIC="$EXT_CLI_STATIC $1;$ext_dir"
   fi
   PHP_ADD_BUILD_DIR($ext_builddir)
 
@@ -2333,13 +2334,13 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
 
   dnl If pkg-config is found try using it
   if test "$PHP_OPENSSL_DIR" = "yes" && test -x "$PKG_CONFIG" && $PKG_CONFIG --exists openssl; then
-    if $PKG_CONFIG --atleast-version=0.9.6 openssl; then
+    if $PKG_CONFIG --atleast-version=0.9.8 openssl; then
       found_openssl=yes
       OPENSSL_LIBS=`$PKG_CONFIG --libs openssl`
       OPENSSL_INCS=`$PKG_CONFIG --cflags-only-I openssl`
       OPENSSL_INCDIR=`$PKG_CONFIG --variable=includedir openssl`
     else
-      AC_MSG_ERROR([OpenSSL version 0.9.6 or greater required.])
+      AC_MSG_ERROR([OpenSSL version 0.9.8 or greater required.])
     fi
 
     if test -n "$OPENSSL_LIBS"; then
@@ -2380,13 +2381,13 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
     AC_MSG_CHECKING([for OpenSSL version])
     AC_EGREP_CPP(yes,[
 #include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER >= 0x0090600fL
+#if OPENSSL_VERSION_NUMBER >= 0x0090800fL
   yes
 #endif
     ],[
-      AC_MSG_RESULT([>= 0.9.6])
+      AC_MSG_RESULT([>= 0.9.8])
     ],[
-      AC_MSG_ERROR([OpenSSL version 0.9.6 or greater required.])
+      AC_MSG_ERROR([OpenSSL version 0.9.8 or greater required.])
     ])
     CPPFLAGS=$old_CPPFLAGS
 
@@ -2736,7 +2737,7 @@ AC_DEFUN([PHP_CHECK_CONFIGURE_OPTIONS],[
       enable-libtool-lock | with-pic | with-tags | enable-shared | enable-static | enable-fast-install | with-gnu-ld[)];;
 
       # Allow certain TSRM options
-      with-tsrm-pth | with-tsrm-st | with-tsrm-pthreads[)];;
+      with-tsrm-pth | with-tsrm-st | with-tsrm-pthreads [)];;
 
       # Allow certain Zend options
       with-zend-vm | enable-maintainer-zts | enable-inline-optimization[)];;
@@ -2771,8 +2772,8 @@ AC_DEFUN([PHP_CHECK_PDO_INCLUDES],[
       pdo_cv_inc_path=$abs_srcdir/ext
     elif test -f $abs_srcdir/ext/pdo/php_pdo_driver.h; then
       pdo_cv_inc_path=$abs_srcdir/ext
-    elif test -f $prefix/include/php/ext/pdo/php_pdo_driver.h; then
-      pdo_cv_inc_path=$prefix/include/php/ext
+    elif test -f $phpincludedir/ext/pdo/php_pdo_driver.h; then
+      pdo_cv_inc_path=$phpincludedir/ext
     fi
   ])
   if test -n "$pdo_cv_inc_path"; then
@@ -3030,4 +3031,22 @@ AC_DEFUN([PHP_CHECK_STDINT_TYPES], [
 #endif
   ])
   AC_DEFINE([PHP_HAVE_STDINT_TYPES], [1], [Checked for stdint types])
+])
+
+dnl PHP_CHECK_BUILTIN_EXPECT
+AC_DEFUN([PHP_CHECK_BUILTIN_EXPECT], [
+  AC_MSG_CHECKING([for __builtin_expect])
+
+  AC_TRY_LINK(, [
+    return __builtin_expect(1,1) ? 1 : 0;
+  ], [
+    have_builtin_expect=1
+    AC_MSG_RESULT([yes])
+  ], [
+    have_builtin_expect=0
+    AC_MSG_RESULT([no])
+  ])
+
+  AC_DEFINE_UNQUOTED([PHP_HAVE_BUILTIN_EXPECT], [$have_builtin_expect], [Whether the compiler supports __builtin_expect])
+
 ])
