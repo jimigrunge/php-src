@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2015 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2016 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -710,13 +710,26 @@ zval *zend_std_read_dimension(zval *object, zval *offset, int type, zval *rv) /*
 	zval tmp;
 
 	if (EXPECTED(instanceof_function_ex(ce, zend_ce_arrayaccess, 1) != 0)) {
-		if(offset == NULL) {
+		if (offset == NULL) {
 			/* [] construct */
-			ZVAL_UNDEF(&tmp);
+			ZVAL_NULL(&tmp);
 			offset = &tmp;
 		} else {
 			SEPARATE_ARG_IF_REF(offset);
 		}
+
+		if (type == BP_VAR_IS) {
+			zend_call_method_with_1_params(object, ce, NULL, "offsetexists", rv, offset);
+			if (UNEXPECTED(Z_ISUNDEF_P(rv))) {
+				return NULL;
+			}
+			if (!i_zend_is_true(rv)) {
+				zval_ptr_dtor(rv);
+				return &EG(uninitialized_zval);
+			}
+			zval_ptr_dtor(rv);
+		}
+
 		zend_call_method_with_1_params(object, ce, NULL, "offsetget", rv, offset);
 
 		zval_ptr_dtor(offset);
@@ -1054,6 +1067,8 @@ ZEND_API zend_function *zend_get_call_trampoline_func(zend_class_entry *ce, zend
 
 	func->prototype = fbc;
 	func->scope = fbc->common.scope;
+	/* reserve space for arguments, local and temorary variables */
+	func->T = (fbc->type == ZEND_USER_FUNCTION)? MAX(fbc->op_array.last_var + fbc->op_array.T, 2) : 2;
 	func->filename = (fbc->type == ZEND_USER_FUNCTION)? fbc->op_array.filename : ZSTR_EMPTY_ALLOC();
 	func->line_start = (fbc->type == ZEND_USER_FUNCTION)? fbc->op_array.line_start : 0;
 	func->line_end = (fbc->type == ZEND_USER_FUNCTION)? fbc->op_array.line_end : 0;
@@ -1526,9 +1541,18 @@ ZEND_API int zend_std_cast_object_tostring(zval *readobj, zval *writeobj, int ty
 			if (ce->__tostring &&
 				(zend_call_method_with_0_params(readobj, ce, &ce->__tostring, "__tostring", &retval) || EG(exception))) {
 				if (UNEXPECTED(EG(exception) != NULL)) {
+					zval *msg, ex, rv;
 					zval_ptr_dtor(&retval);
+					ZVAL_OBJ(&ex, EG(exception));
 					EG(exception) = NULL;
-					zend_error_noreturn(E_ERROR, "Method %s::__toString() must not throw an exception", ZSTR_VAL(ce->name));
+					msg = zend_read_property(Z_OBJCE(ex), &ex, "message", sizeof("message") - 1, 1, &rv);
+					if (UNEXPECTED(Z_TYPE_P(msg) != IS_STRING)) {
+						ZVAL_EMPTY_STRING(&rv);
+						msg = &rv;
+					}
+					zend_error_noreturn(E_ERROR,
+							"Method %s::__toString() must not throw an exception, caught %s: %s",
+							ZSTR_VAL(ce->name), ZSTR_VAL(Z_OBJCE(ex)->name), Z_STRVAL_P(msg));
 					return FAILURE;
 				}
 				if (EXPECTED(Z_TYPE(retval) == IS_STRING)) {

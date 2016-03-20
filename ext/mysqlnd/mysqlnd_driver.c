@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 7                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2015 The PHP Group                                |
+  | Copyright (c) 2006-2016 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Authors: Andrey Hristov <andrey@mysql.com>                           |
-  |          Ulf Wendel <uwendel@mysql.com>                              |
-  |          Georg Richter <georg@mysql.com>                             |
+  | Authors: Andrey Hristov <andrey@php.net>                             |
+  |          Ulf Wendel <uw@php.net>                                     |
   +----------------------------------------------------------------------+
 */
+
 #include "php.h"
 #include "mysqlnd.h"
 #include "mysqlnd_vio.h"
@@ -41,7 +41,7 @@ static struct st_mysqlnd_plugin_core mysqlnd_plugin_core =
 		MYSQLND_VERSION_ID,
 		PHP_MYSQLND_VERSION,
 		"PHP License 3.01",
-		"Andrey Hristov <andrey@mysql.com>,  Ulf Wendel <uwendel@mysql.com>, Georg Richter <georg@mysql.com>",
+		"Andrey Hristov <andrey@php.net>,  Ulf Wendel <uw@php.net>, Georg Richter <georg@php.net>",
 		{
 			NULL, /* will be filled later */
 			mysqlnd_stats_values_names,
@@ -140,8 +140,8 @@ MYSQLND_METHOD(mysqlnd_object_factory, get_connection)(MYSQLND_CLASS_METHODS_TYP
 
 	mysqlnd_stats_init(&data->stats, STAT_LAST, persistent);
 
-	data->protocol_frame_codec = mysqlnd_pfc_init(persistent, data->stats, data->error_info);
-	data->vio = mysqlnd_vio_init(persistent, data->stats, data->error_info);
+	data->protocol_frame_codec = mysqlnd_pfc_init(persistent, factory, data->stats, data->error_info);
+	data->vio = mysqlnd_vio_init(persistent, factory, data->stats, data->error_info);
 	data->payload_decoder_factory = mysqlnd_protocol_payload_decoder_factory_init(data, persistent);
 	data->command_factory = mysqlnd_command_factory_get();
 
