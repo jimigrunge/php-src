@@ -1,5 +1,7 @@
 --TEST--
 Phar front controller 404 zip-based
+--INI--
+phar.require_hash=0
 --SKIPIF--
 <?php if (!extension_loaded("phar")) die("skip"); ?>
 <?php if (!extension_loaded("zlib")) die("skip zlib not available"); ?>
@@ -17,6 +19,6 @@ Status: 404 Not Found
   <title>File Not Found</title>
  </head>
  <body>
-  <h1>404 - File /notfound.php Not Found</h1>
+  <h1>404 - File Not Found</h1>
  </body>
 </html>

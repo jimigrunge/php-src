@@ -1,10 +1,8 @@
---TEST--                                 
+--TEST--
 Bug #32589 (crash inside imap_mail_compose() function)
 --SKIPIF--
 <?php
-        if (!extension_loaded("imap")) { 
-                die("skip imap extension not available");  
-        }
+extension_loaded('imap') or die('skip imap extension not available in this build');
 ?>
 --FILE--
 <?php

@@ -2,6 +2,7 @@
 Phar front controller mime type override, Phar::PHPS zip-based
 --INI--
 default_charset=UTF-8
+phar.require_hash=0
 --SKIPIF--
 <?php if (!extension_loaded("phar")) die("skip"); ?>
 <?php if (!extension_loaded("zlib")) die("skip zlib not available"); ?>
@@ -18,4 +19,3 @@ Content-type: text/html; charset=UTF-8
 <span style="color: #0000BB">&lt;?php&nbsp;</span><span style="color: #007700">function&nbsp;</span><span style="color: #0000BB">hio</span><span style="color: #007700">(){}</span>
 </span>
 </code>
-

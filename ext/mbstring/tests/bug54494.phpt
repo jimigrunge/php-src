@@ -42,6 +42,7 @@ for ($i=0; $i < $length; $i++) {
   echo $t[1];
 }
 echo "\n";
+?>
 --EXPECT--
 UTF-32LE:
 Length: 12
@@ -49,4 +50,3 @@ Length: 12
 UCS-2LE:
 Length: 12
 6800e4006c006c00f60020007700f60072006c0064000a00
-

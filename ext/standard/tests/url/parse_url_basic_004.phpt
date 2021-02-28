@@ -1,26 +1,20 @@
 --TEST--
-Test parse_url() function: Parse a load of URLs without specifying PHP_URL_PORT as the URL component 
+Test parse_url() function: Parse a load of URLs without specifying PHP_URL_PORT as the URL component
 --FILE--
 <?php
-/* Prototype  : proto mixed parse_url(string url, [int url_component])
- * Description: Parse a URL and return its components 
- * Source code: ext/standard/url.c
- * Alias to functions: 
- */
-
 /*
  * Parse a load of URLs without specifying PHP_URL_PORT as the URL component
  */
-include_once(dirname(__FILE__) . '/urls.inc');
+include_once(__DIR__ . '/urls.inc');
 
 foreach ($urls as $url) {
-	echo "--> $url   : ";
-	var_dump(parse_url($url, PHP_URL_PORT));
+    echo "--> $url   : ";
+    var_dump(parse_url($url, PHP_URL_PORT));
 }
 
 echo "Done";
 ?>
---EXPECTF--
+--EXPECT--
 --> 64.246.30.37   : NULL
 --> http://64.246.30.37   : NULL
 --> http://64.246.30.37/   : NULL
@@ -68,6 +62,7 @@ echo "Done";
 --> http://secret:@www.php.net/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : NULL
 --> http://:hideout@www.php.net:80/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : int(80)
 --> http://secret:hideout@www.php.net/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : NULL
+--> http://secret@hideout@www.php.net:80/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : int(80)
 --> http://secret:hid:out@www.php.net:80/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : int(80)
 --> nntp://news.php.net   : NULL
 --> ftp://ftp.gnu.org/gnu/glic/glibc.tar.gz   : NULL
@@ -79,6 +74,7 @@ echo "Done";
 --> /foo.php?a=b&c=d   : NULL
 --> foo.php?a=b&c=d   : NULL
 --> http://user:passwd@www.example.com:8080?bar=1&boom=0   : int(8080)
+--> http://user_me-you:my_pas-word@www.example.com:8080?bar=1&boom=0   : int(8080)
 --> file:///path/to/file   : NULL
 --> file://path/to/file   : NULL
 --> file:/path/to/file   : NULL
@@ -87,6 +83,7 @@ echo "Done";
 --> scheme:   : NULL
 --> foo+bar://baz@bang/bla   : NULL
 --> gg:9130731   : NULL
+--> http://user:@pass@host/path?argument?value#etc   : NULL
 --> http://10.10.10.10/:80   : NULL
 --> http://x:?   : NULL
 --> x:blah.com   : NULL
@@ -95,8 +92,8 @@ echo "Done";
 --> http://::?   : NULL
 --> http://::#   : NULL
 --> x://::6.5   : int(6)
---> http://?:/   : NULL
---> http://@?:/   : NULL
+--> http://?:/   : bool(false)
+--> http://@?:/   : bool(false)
 --> file:///:   : NULL
 --> file:///a:/   : NULL
 --> file:///ab:/   : NULL
@@ -108,6 +105,8 @@ echo "Done";
 -->    : NULL
 --> /   : NULL
 --> /rest/Users?filter={"id":"123"}   : NULL
+--> %:x   : NULL
+--> https://example.com:0/   : int(0)
 --> http:///blah.com   : bool(false)
 --> http://:80   : bool(false)
 --> http://user@:80   : bool(false)
@@ -122,7 +121,4 @@ echo "Done";
 --> http://:?   : bool(false)
 --> http://blah.com:123456   : bool(false)
 --> http://blah.com:abcdef   : bool(false)
---> http://secret@hideout@www.php.net:80/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : bool(false)
---> http://user:@pass@host/path?argument?value#etc   : bool(false)
---> http://foo.com\@bar.com   : bool(false)
 Done

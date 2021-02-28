@@ -17,7 +17,7 @@
 # include <sys/ioctl.h>
 # include <net/if.h>
 #else
-# include <win32/php_stdint.h>
+# include <stdint.h>
 #endif
 
 #include <limits.h>
@@ -36,16 +36,6 @@ struct _WSAMSG {
     WSABUF           Control;			//void *msg_control, size_t msg_controllen
     DWORD            dwFlags;			//int msg_flags
 }
-struct __WSABUF {
-  u_long			len;				//size_t iov_len (2nd member)
-  char FAR			*buf;				//void *iov_base (1st member)
-}
-struct _WSACMSGHDR {
-  UINT        cmsg_len;					//socklen_t cmsg_len
-  INT         cmsg_level;				//int       cmsg_level
-  INT         cmsg_type;				//int       cmsg_type;
-  followed by UCHAR cmsg_data[]
-}
 */
 # define msg_name		name
 # define msg_namelen	namelen
@@ -57,7 +47,6 @@ struct _WSACMSGHDR {
 # define iov_base		buf
 # define iov_len		len
 
-# define cmsghdr		_WSACMSGHDR
 # ifdef CMSG_DATA
 #  undef CMSG_DATA
 # endif
@@ -199,7 +188,7 @@ static void do_to_zval_err(res_context *ctx, const char *fmt, ...)
 void err_msg_dispose(struct err_s *err)
 {
 	if (err->msg != NULL) {
-		php_error_docref0(NULL, err->level, "%s", err->msg);
+		php_error_docref(NULL, err->level, "%s", err->msg);
 		if (err->should_free) {
 			efree(err->msg);
 		}
@@ -225,7 +214,7 @@ static unsigned from_array_iterate(const zval *arr,
 	/* Note i starts at 1, not 0! */
 	i = 1;
 	ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(arr), elem) {
-		if (snprintf(buf, sizeof(buf), "element #%u", i) >= sizeof(buf)) {
+		if ((size_t)snprintf(buf, sizeof(buf), "element #%u", i) >= sizeof(buf)) {
 			memcpy(buf, "element", sizeof("element"));
 		}
 		zend_llist_add_element(&ctx->keys, &bufp);
@@ -332,16 +321,19 @@ double_case:
 		zend_long lval;
 		double dval;
 
-		convert_to_string(&lzval);
+		if (!try_convert_to_string(&lzval)) {
+			ctx->err.has_error = 1;
+			break;
+		}
 
 		switch (is_numeric_string(Z_STRVAL(lzval), Z_STRLEN(lzval), &lval, &dval, 0)) {
 		case IS_DOUBLE:
-			zval_dtor(&lzval);
+			zval_ptr_dtor_str(&lzval);
 			ZVAL_DOUBLE(&lzval, dval);
 			goto double_case;
 
 		case IS_LONG:
-			zval_dtor(&lzval);
+			zval_ptr_dtor_str(&lzval);
 			ZVAL_LONG(&lzval, lval);
 			goto long_case;
 		}
@@ -358,7 +350,7 @@ double_case:
 		break;
 	}
 
-	zval_dtor(&lzval);
+	zval_ptr_dtor(&lzval);
 
 	return ret;
 }
@@ -438,6 +430,8 @@ static void from_zval_write_sa_family(const zval *arr_value, char *field, ser_co
 	ival = (sa_family_t)lval;
 	memcpy(field, &ival, sizeof(ival));
 }
+
+#ifdef SO_PASSCRED
 static void from_zval_write_pid_t(const zval *arr_value, char *field, ser_context *ctx)
 {
 	zend_long lval;
@@ -485,17 +479,11 @@ static void from_zval_write_uid_t(const zval *arr_value, char *field, ser_contex
 	ival = (uid_t)lval;
 	memcpy(field, &ival, sizeof(ival));
 }
+#endif
 
 void to_zval_read_int(const char *data, zval *zv, res_context *ctx)
 {
 	int ival;
-	memcpy(&ival, data, sizeof(ival));
-
-	ZVAL_LONG(zv, (zend_long)ival);
-}
-static void to_zval_read_unsigned(const char *data, zval *zv, res_context *ctx)
-{
-	unsigned ival;
 	memcpy(&ival, data, sizeof(ival));
 
 	ZVAL_LONG(zv, (zend_long)ival);
@@ -507,13 +495,6 @@ static void to_zval_read_net_uint16(const char *data, zval *zv, res_context *ctx
 
 	ZVAL_LONG(zv, (zend_long)ntohs(ival));
 }
-static void to_zval_read_uint32(const char *data, zval *zv, res_context *ctx)
-{
-	uint32_t ival;
-	memcpy(&ival, data, sizeof(ival));
-
-	ZVAL_LONG(zv, (zend_long)ival);
-}
 static void to_zval_read_sa_family(const char *data, zval *zv, res_context *ctx)
 {
 	sa_family_t ival;
@@ -521,6 +502,23 @@ static void to_zval_read_sa_family(const char *data, zval *zv, res_context *ctx)
 
 	ZVAL_LONG(zv, (zend_long)ival);
 }
+#if HAVE_IPV6
+static void to_zval_read_unsigned(const char *data, zval *zv, res_context *ctx)
+{
+	unsigned ival;
+	memcpy(&ival, data, sizeof(ival));
+
+	ZVAL_LONG(zv, (zend_long)ival);
+}
+static void to_zval_read_uint32(const char *data, zval *zv, res_context *ctx)
+{
+	uint32_t ival;
+	memcpy(&ival, data, sizeof(ival));
+
+	ZVAL_LONG(zv, (zend_long)ival);
+}
+#endif
+#ifdef SO_PASSCRED
 static void to_zval_read_pid_t(const char *data, zval *zv, res_context *ctx)
 {
 	pid_t ival;
@@ -535,15 +533,16 @@ static void to_zval_read_uid_t(const char *data, zval *zv, res_context *ctx)
 
 	ZVAL_LONG(zv, (zend_long)ival);
 }
+#endif
 
 /* CONVERSIONS for sockaddr */
 static void from_zval_write_sin_addr(const zval *zaddr_str, char *inaddr, ser_context *ctx)
 {
 	int					res;
 	struct sockaddr_in	saddr = {0};
-	zend_string			*addr_str;
+	zend_string			*addr_str, *tmp_addr_str;
 
-	addr_str = zval_get_string((zval *) zaddr_str);
+	addr_str = zval_get_tmp_string((zval *) zaddr_str, &tmp_addr_str);
 	res = php_set_inet_addr(&saddr, ZSTR_VAL(addr_str), ctx->sock);
 	if (res) {
 		memcpy(inaddr, &saddr.sin_addr, sizeof saddr.sin_addr);
@@ -553,7 +552,7 @@ static void from_zval_write_sin_addr(const zval *zaddr_str, char *inaddr, ser_co
 				"address", ZSTR_VAL(addr_str));
 	}
 
-	zend_string_release(addr_str);
+	zend_tmp_string_release(tmp_addr_str);
 }
 static void to_zval_read_sin_addr(const char *data, zval *zv, res_context *ctx)
 {
@@ -591,9 +590,9 @@ static void from_zval_write_sin6_addr(const zval *zaddr_str, char *addr6, ser_co
 {
 	int					res;
 	struct sockaddr_in6	saddr6 = {0};
-	zend_string			*addr_str;
+	zend_string			*addr_str, *tmp_addr_str;
 
-	addr_str = zval_get_string((zval *) zaddr_str);
+	addr_str = zval_get_tmp_string((zval *) zaddr_str, &tmp_addr_str);
 	res = php_set_inet6_addr(&saddr6, ZSTR_VAL(addr_str), ctx->sock);
 	if (res) {
 		memcpy(addr6, &saddr6.sin6_addr, sizeof saddr6.sin6_addr);
@@ -603,7 +602,7 @@ static void from_zval_write_sin6_addr(const zval *zaddr_str, char *addr6, ser_co
 				"address", Z_STRVAL_P(zaddr_str));
 	}
 
-	zend_string_release(addr_str);
+	zend_tmp_string_release(tmp_addr_str);
 }
 static void to_zval_read_sin6_addr(const char *data, zval *zv, res_context *ctx)
 {
@@ -642,28 +641,30 @@ static void to_zval_read_sockaddr_in6(const char *data, zval *zv, res_context *c
 #endif /* HAVE_IPV6 */
 static void from_zval_write_sun_path(const zval *path, char *sockaddr_un_c, ser_context *ctx)
 {
-	zend_string			*path_str;
+	zend_string			*path_str, *tmp_path_str;
 	struct sockaddr_un	*saddr = (struct sockaddr_un*)sockaddr_un_c;
 
-	path_str = zval_get_string((zval *) path);
+	path_str = zval_get_tmp_string((zval *) path, &tmp_path_str);
 
 	/* code in this file relies on the path being nul terminated, even though
 	 * this is not required, at least on linux for abstract paths. It also
 	 * assumes that the path is not empty */
 	if (ZSTR_LEN(path_str) == 0) {
 		do_from_zval_err(ctx, "%s", "the path is cannot be empty");
+		zend_tmp_string_release(tmp_path_str);
 		return;
 	}
 	if (ZSTR_LEN(path_str) >= sizeof(saddr->sun_path)) {
 		do_from_zval_err(ctx, "the path is too long, the maximum permitted "
-				"length is %ld", sizeof(saddr->sun_path) - 1);
+				"length is %zd", sizeof(saddr->sun_path) - 1);
+		zend_tmp_string_release(tmp_path_str);
 		return;
 	}
 
 	memcpy(&saddr->sun_path, ZSTR_VAL(path_str), ZSTR_LEN(path_str));
 	saddr->sun_path[ZSTR_LEN(path_str)] = '\0';
 
-	zend_string_release(path_str);
+	zend_tmp_string_release(tmp_path_str);
 }
 static void to_zval_read_sun_path(const char *data, zval *zv, res_context *ctx) {
 	struct sockaddr_un	*saddr = (struct sockaddr_un*)data;
@@ -698,6 +699,9 @@ static void from_zval_write_sockaddr_aux(const zval *container,
 	int		family;
 	zval	*elem;
 	int		fill_sockaddr;
+
+	*sockaddr_ptr = NULL;
+	*sockaddr_len = 0;
 
 	if (Z_TYPE_P(container) != IS_ARRAY) {
 		do_from_zval_err(ctx, "%s", "expected an array here");
@@ -937,7 +941,7 @@ static void from_zval_write_control_array(const zval *arr, char *msghdr_c, ser_c
 			break;
 		}
 
-		if (snprintf(buf, sizeof(buf), "element #%u", (unsigned)i++) >= sizeof(buf)) {
+		if ((size_t)snprintf(buf, sizeof(buf), "element #%u", (unsigned)i++) >= sizeof(buf)) {
 			memcpy(buf, "element", sizeof("element"));
 		}
 		zend_llist_add_element(&ctx->keys, &bufp);
@@ -965,7 +969,7 @@ static void to_zval_read_cmsg_data(const char *cmsghdr_c, zval *zv, res_context 
 	}
 	if (CMSG_LEN(entry->size) > cmsg->cmsg_len) {
 		do_to_zval_err(ctx, "the cmsghdr structure is unexpectedly small; "
-				"expected a length of at least %pd, but got %pd",
+				"expected a length of at least " ZEND_LONG_FMT ", but got " ZEND_LONG_FMT,
 				(zend_long)CMSG_LEN(entry->size), (zend_long)cmsg->cmsg_len);
 		return;
 	}
@@ -1002,13 +1006,6 @@ static void to_zval_read_control_array(const char *msghdr_c, zval *zv, res_conte
 	char			*bufp = buf;
 	uint32_t		i = 1;
 
-	/*if (msg->msg_flags & MSG_CTRUNC) {
-		php_error_docref0(NULL, E_WARNING, "The MSG_CTRUNC flag is present; will not "
-				"attempt to read control messages");
-		ZVAL_FALSE(zv);
-		return;
-	}*/
-
 	array_init(zv);
 
 	for (cmsg = CMSG_FIRSTHDR(msg);
@@ -1019,7 +1016,7 @@ static void to_zval_read_control_array(const char *msghdr_c, zval *zv, res_conte
 		ZVAL_NULL(&tmp);
 		elem = zend_hash_next_index_insert(Z_ARRVAL_P(zv), &tmp);
 
-		if (snprintf(buf, sizeof(buf), "element #%u", (unsigned)i++) >= sizeof(buf)) {
+		if ((size_t)snprintf(buf, sizeof(buf), "element #%u", (unsigned)i++) >= sizeof(buf)) {
 			memcpy(buf, "element", sizeof("element"));
 		}
 		zend_llist_add_element(&ctx->keys, &bufp);
@@ -1061,9 +1058,9 @@ static void from_zval_write_msghdr_buffer_size(const zval *elem, char *msghdr_c,
 		return;
 	}
 
-	if (lval < 0 || lval > MAX_USER_BUFF_SIZE) {
-		do_from_zval_err(ctx, "the buffer size must be between 1 and %pd; "
-				"given %pd", (zend_long)MAX_USER_BUFF_SIZE, lval);
+	if (lval < 0 || (zend_ulong)lval > MAX_USER_BUFF_SIZE) {
+		do_from_zval_err(ctx, "the buffer size must be between 1 and " ZEND_LONG_FMT "; "
+				"given " ZEND_LONG_FMT, (zend_long)MAX_USER_BUFF_SIZE, lval);
 		return;
 	}
 
@@ -1075,19 +1072,15 @@ static void from_zval_write_msghdr_buffer_size(const zval *elem, char *msghdr_c,
 static void from_zval_write_iov_array_aux(zval *elem, unsigned i, void **args, ser_context *ctx)
 {
 	struct msghdr	*msg = args[0];
-	size_t			len;
+	zend_string     *str, *tmp_str;
 
-	if (Z_REFCOUNTED_P(elem)) {
-		Z_ADDREF_P(elem);
-	}
-	convert_to_string_ex(elem);
+	str = zval_get_tmp_string(elem, &tmp_str);
 
-	len = Z_STRLEN_P(elem);
-	msg->msg_iov[i - 1].iov_base = accounted_emalloc(len, ctx);
-	msg->msg_iov[i - 1].iov_len = len;
-	memcpy(msg->msg_iov[i - 1].iov_base, Z_STRVAL_P(elem), len);
+	msg->msg_iov[i - 1].iov_base = accounted_emalloc(ZSTR_LEN(str), ctx);
+	msg->msg_iov[i - 1].iov_len = ZSTR_LEN(str);
+	memcpy(msg->msg_iov[i - 1].iov_base, ZSTR_VAL(str), ZSTR_LEN(str));
 
-	zval_ptr_dtor(elem);
+	zend_tmp_string_release(tmp_str);
 }
 static void from_zval_write_iov_array(const zval *arr, char *msghdr_c, ser_context *ctx)
 {
@@ -1188,13 +1181,13 @@ static void to_zval_read_iov(const char *msghdr_c, zval *zv, res_context *ctx)
 	size_t				iovlen = msghdr->msg_iovlen;
 	ssize_t				*recvmsg_ret,
 						bytes_left;
-	uint				i;
+	uint32_t			i;
 
 	if (iovlen > UINT_MAX) {
 		do_to_zval_err(ctx, "unexpectedly large value for iov_len: %lu",
 				(unsigned long)iovlen);
 	}
-	array_init_size(zv, (uint)iovlen);
+	array_init_size(zv, (uint32_t)iovlen);
 
 	if ((recvmsg_ret = zend_hash_str_find_ptr(&ctx->params, KEY_RECVMSG_RET, sizeof(KEY_RECVMSG_RET) - 1)) == NULL) {
 		do_to_zval_err(ctx, "recvmsg_ret not found in params. This is a bug");
@@ -1202,7 +1195,7 @@ static void to_zval_read_iov(const char *msghdr_c, zval *zv, res_context *ctx)
 	}
 	bytes_left = *recvmsg_ret;
 
-	for (i = 0; bytes_left > 0 && i < (uint)iovlen; i++) {
+	for (i = 0; bytes_left > 0 && i < (uint32_t)iovlen; i++) {
 		zval elem;
 		size_t len = MIN(msghdr->msg_iov[i].iov_len, (size_t)bytes_left);
 		zend_string	*buf = zend_string_alloc(len, 0);
@@ -1230,22 +1223,23 @@ void to_zval_read_msghdr(const char *msghdr_c, zval *zv, res_context *ctx)
 	to_zval_read_aggregation(msghdr_c, zv, descriptors, ctx);
 }
 
+#if defined(IPV6_PKTINFO) && HAVE_IPV6
 /* CONVERSIONS for if_index */
 static void from_zval_write_ifindex(const zval *zv, char *uinteger, ser_context *ctx)
 {
 	unsigned ret = 0;
 
 	if (Z_TYPE_P(zv) == IS_LONG) {
-		if (Z_LVAL_P(zv) < 0 || Z_LVAL_P(zv) > UINT_MAX) { /* allow 0 (unspecified interface) */
+		if (Z_LVAL_P(zv) < 0 || (zend_ulong)Z_LVAL_P(zv) > UINT_MAX) { /* allow 0 (unspecified interface) */
 			do_from_zval_err(ctx, "the interface index cannot be negative or "
-					"larger than %u; given %pd", UINT_MAX, Z_LVAL_P(zv));
+					"larger than %u; given " ZEND_LONG_FMT, UINT_MAX, Z_LVAL_P(zv));
 		} else {
 			ret = (unsigned)Z_LVAL_P(zv);
 		}
 	} else {
-		zend_string *str;
+		zend_string *str, *tmp_str;
 
-		str = zval_get_string((zval *) zv);
+		str = zval_get_tmp_string((zval *) zv, &tmp_str);
 
 #if HAVE_IF_NAMETOINDEX
 		ret = if_nametoindex(ZSTR_VAL(str));
@@ -1277,7 +1271,7 @@ static void from_zval_write_ifindex(const zval *zv, char *uinteger, ser_context 
 				"name, an integer interface index must be supplied instead");
 #endif
 
-		zend_string_release(str);
+		zend_tmp_string_release(tmp_str);
 	}
 
 	if (!ctx->err.has_error) {
@@ -1286,7 +1280,6 @@ static void from_zval_write_ifindex(const zval *zv, char *uinteger, ser_context 
 }
 
 /* CONVERSIONS for struct in6_pktinfo */
-#if defined(IPV6_PKTINFO) && HAVE_IPV6
 static const field_descriptor descriptors_in6_pktinfo[] = {
 		{"addr", sizeof("addr"), 1, offsetof(struct in6_pktinfo, ipi6_addr), from_zval_write_sin6_addr, to_zval_read_sin6_addr},
 		{"ifindex", sizeof("ifindex"), 1, offsetof(struct in6_pktinfo, ipi6_ifindex), from_zval_write_ifindex, to_zval_read_unsigned},
@@ -1348,29 +1341,32 @@ static void from_zval_write_fd_array_aux(zval *elem, unsigned i, void **args, se
 {
 	int *iarr = args[0];
 
-	if (Z_TYPE_P(elem) == IS_RESOURCE) {
-		php_stream *stream;
-		php_socket *sock;
-
-		sock = (php_socket *)zend_fetch_resource_ex(elem, NULL, php_sockets_le_socket());
-		if (sock) {
-			iarr[i] = sock->bsd_socket;
+	if (Z_TYPE_P(elem) == IS_OBJECT && Z_OBJCE_P(elem) == socket_ce) {
+		php_socket *sock = Z_SOCKET_P(elem);
+		if (IS_INVALID_SOCKET(sock)) {
+			do_from_zval_err(ctx, "socket is already closed");
 			return;
 		}
+
+		iarr[i] = sock->bsd_socket;
+		return;
+	}
+
+	if (Z_TYPE_P(elem) == IS_RESOURCE) {
+		php_stream *stream;
 
 		stream = (php_stream *)zend_fetch_resource2_ex(elem, NULL, php_file_le_stream(), php_file_le_pstream());
 		if (stream == NULL) {
-			do_from_zval_err(ctx, "resource is not a stream or a socket");
+			do_from_zval_err(ctx, "resource is not a stream");
 			return;
 		}
 
-		if (php_stream_cast(stream, PHP_STREAM_AS_FD, (void **)&iarr[i - 1],
-				REPORT_ERRORS) == FAILURE) {
+		if (php_stream_cast(stream, PHP_STREAM_AS_FD, (void **)&iarr[i - 1], REPORT_ERRORS) == FAILURE) {
 			do_from_zval_err(ctx, "cast stream to file descriptor failed");
 			return;
 		}
 	} else {
-		do_from_zval_err(ctx, "expected a resource variable");
+		do_from_zval_err(ctx, "expected a Socket object or a stream resource");
 	}
 }
 void from_zval_write_fd_array(const zval *arr, char *int_arr, ser_context *ctx)
@@ -1400,7 +1396,7 @@ void to_zval_read_fd_array(const char *data, zval *zv, res_context *ctx)
 
 	if (*cmsg_len < data_offset) {
 		do_to_zval_err(ctx, "length of cmsg is smaller than its data member "
-				"offset (%pd vs %pd)", (zend_long)*cmsg_len, (zend_long)data_offset);
+				"offset (" ZEND_LONG_FMT " vs " ZEND_LONG_FMT ")", (zend_long)*cmsg_len, (zend_long)data_offset);
 		return;
 	}
 	num_elems = (*cmsg_len - data_offset) / sizeof(int);
@@ -1421,8 +1417,10 @@ void to_zval_read_fd_array(const char *data, zval *zv, res_context *ctx)
 			return;
 		}
 		if (S_ISSOCK(statbuf.st_mode)) {
-			php_socket *sock = socket_import_file_descriptor(fd);
-			ZVAL_RES(&elem, zend_register_resource(sock, php_sockets_le_socket()));
+			object_init_ex(&elem, socket_ce);
+			php_socket *sock = Z_SOCKET_P(&elem);
+
+			socket_import_file_descriptor(fd, sock);
 		} else {
 			php_stream *stream = php_stream_fopen_from_fd(fd, "rw", NULL);
 			php_stream_to_zval(stream, &elem);

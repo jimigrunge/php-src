@@ -1,26 +1,20 @@
 --TEST--
-Test parse_url() function: Parse a load of URLs without specifying PHP_URL_PATH as the URL component 
+Test parse_url() function: Parse a load of URLs without specifying PHP_URL_PATH as the URL component
 --FILE--
 <?php
-/* Prototype  : proto mixed parse_url(string url, [int url_component])
- * Description: Parse a URL and return its components 
- * Source code: ext/standard/url.c
- * Alias to functions: 
- */
-
 /*
  * Parse a load of URLs without specifying PHP_URL_PATH as the URL component
  */
-include_once(dirname(__FILE__) . '/urls.inc');
+include_once(__DIR__ . '/urls.inc');
 
 foreach ($urls as $url) {
-	echo "--> $url   : ";
-	var_dump(parse_url($url, PHP_URL_PATH));
+    echo "--> $url   : ";
+    var_dump(parse_url($url, PHP_URL_PATH));
 }
 
 echo "Done";
 ?>
---EXPECTF--
+--EXPECT--
 --> 64.246.30.37   : string(12) "64.246.30.37"
 --> http://64.246.30.37   : NULL
 --> http://64.246.30.37/   : string(1) "/"
@@ -68,6 +62,7 @@ echo "Done";
 --> http://secret:@www.php.net/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : string(10) "/index.php"
 --> http://:hideout@www.php.net:80/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : string(10) "/index.php"
 --> http://secret:hideout@www.php.net/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : string(10) "/index.php"
+--> http://secret@hideout@www.php.net:80/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : string(10) "/index.php"
 --> http://secret:hid:out@www.php.net:80/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : string(10) "/index.php"
 --> nntp://news.php.net   : NULL
 --> ftp://ftp.gnu.org/gnu/glic/glibc.tar.gz   : string(22) "/gnu/glic/glibc.tar.gz"
@@ -79,6 +74,7 @@ echo "Done";
 --> /foo.php?a=b&c=d   : string(8) "/foo.php"
 --> foo.php?a=b&c=d   : string(7) "foo.php"
 --> http://user:passwd@www.example.com:8080?bar=1&boom=0   : NULL
+--> http://user_me-you:my_pas-word@www.example.com:8080?bar=1&boom=0   : NULL
 --> file:///path/to/file   : string(13) "/path/to/file"
 --> file://path/to/file   : string(8) "/to/file"
 --> file:/path/to/file   : string(13) "/path/to/file"
@@ -87,6 +83,7 @@ echo "Done";
 --> scheme:   : NULL
 --> foo+bar://baz@bang/bla   : string(4) "/bla"
 --> gg:9130731   : string(7) "9130731"
+--> http://user:@pass@host/path?argument?value#etc   : string(5) "/path"
 --> http://10.10.10.10/:80   : string(4) "/:80"
 --> http://x:?   : NULL
 --> x:blah.com   : string(8) "blah.com"
@@ -95,8 +92,8 @@ echo "Done";
 --> http://::?   : NULL
 --> http://::#   : NULL
 --> x://::6.5   : NULL
---> http://?:/   : string(1) "/"
---> http://@?:/   : string(1) "/"
+--> http://?:/   : bool(false)
+--> http://@?:/   : bool(false)
 --> file:///:   : string(2) "/:"
 --> file:///a:/   : string(3) "a:/"
 --> file:///ab:/   : string(5) "/ab:/"
@@ -108,6 +105,8 @@ echo "Done";
 -->    : string(0) ""
 --> /   : string(1) "/"
 --> /rest/Users?filter={"id":"123"}   : string(11) "/rest/Users"
+--> %:x   : string(3) "%:x"
+--> https://example.com:0/   : string(1) "/"
 --> http:///blah.com   : bool(false)
 --> http://:80   : bool(false)
 --> http://user@:80   : bool(false)
@@ -122,7 +121,4 @@ echo "Done";
 --> http://:?   : bool(false)
 --> http://blah.com:123456   : bool(false)
 --> http://blah.com:abcdef   : bool(false)
---> http://secret@hideout@www.php.net:80/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123   : bool(false)
---> http://user:@pass@host/path?argument?value#etc   : bool(false)
---> http://foo.com\@bar.com   : bool(false)
 Done

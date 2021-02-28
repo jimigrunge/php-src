@@ -1,8 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 7                                                        |
-  +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2016 The PHP Group                                |
+  | Copyright (c) The PHP Group                                          |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -131,6 +129,7 @@
 #define CR_PARAMS_NOT_BOUND		2031
 #define CR_INVALID_PARAMETER_NO	2034
 #define CR_INVALID_BUFFER_USE	2035
+#define CR_LOAD_DATA_LOCAL_INFILE_REJECTED 2068
 
 #define MYSQLND_EE_FILENOTFOUND	 7890
 
@@ -149,12 +148,6 @@
 #define TRANS_COR_AND_NO_CHAIN	2
 #define TRANS_COR_RELEASE		4
 #define TRANS_COR_NO_RELEASE	8
-
-typedef enum mysqlnd_extension
-{
-	MYSQLND_MYSQL = 0,
-	MYSQLND_MYSQLI
-} enum_mysqlnd_extension;
 
 enum
 {
@@ -236,16 +229,28 @@ typedef enum mysqlnd_client_option
 	MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
 	MYSQL_PLUGIN_DIR,
 	MYSQL_DEFAULT_AUTH,
+	MYSQL_OPT_BIND,
+	MYSQL_OPT_SSL_KEY,
+	MYSQL_OPT_SSL_CERT,
+	MYSQL_OPT_SSL_CA,
+	MYSQL_OPT_SSL_CAPATH,
+	MYSQL_OPT_SSL_CIPHER,
+	MYSQL_OPT_SSL_CRL,
+	MYSQL_OPT_SSL_CRLPATH,
 	MYSQL_OPT_CONNECT_ATTR_RESET,
 	MYSQL_OPT_CONNECT_ATTR_ADD,
 	MYSQL_OPT_CONNECT_ATTR_DELETE,
 	MYSQL_SERVER_PUBLIC_KEY,
 	MYSQL_ENABLE_CLEARTEXT_PLUGIN,
 	MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
+	MYSQL_OPT_SSL_ENFORCE,
+	MYSQL_OPT_MAX_ALLOWED_PACKET,
+	MYSQL_OPT_NET_BUFFER_LENGTH,
+	MYSQL_OPT_TLS_VERSION,
+	MYSQL_OPT_SSL_MODE,
+	MYSQL_OPT_LOAD_DATA_LOCAL_DIR,
 	MYSQLND_DEPRECATED_ENUM1 = 200,
-#ifdef MYSQLND_STRING_TO_INT_CONVERSION
 	MYSQLND_OPT_INT_AND_FLOAT_NATIVE = 201,
-#endif
 	MYSQLND_OPT_NET_CMD_BUFFER_SIZE = 202,
 	MYSQLND_OPT_NET_READ_BUFFER_SIZE = 203,
 	MYSQLND_OPT_SSL_KEY = 204,
@@ -618,6 +623,7 @@ enum mysqlnd_packet_type
 	PROT_CHG_USER_RESP_PACKET,
 	PROT_SHA256_PK_REQUEST_PACKET,
 	PROT_SHA256_PK_REQUEST_RESPONSE_PACKET,
+	PROT_CACHED_SHA2_RESULT_PACKET,
 	PROT_LAST /* should always be last */
 };
 
@@ -677,33 +683,12 @@ enum php_mysqlnd_server_command
 #define MYSQLND_REFRESH_HOSTS		8	/* Flush host cache */
 #define MYSQLND_REFRESH_STATUS		16	/* Flush status variables */
 #define MYSQLND_REFRESH_THREADS		32	/* Flush thread cache */
-#define MYSQLND_REFRESH_SLAVE		64	/* Reset master info and restart slave */
+#define MYSQLND_REFRESH_REPLICA		64	/* Reset master info and restart replica */
+#define MYSQLND_REFRESH_SLAVE		MYSQLND_REFRESH_REPLICA	/* temporarily for backward compatibility */
 #define MYSQLND_REFRESH_MASTER		128	/* Remove all bin logs in the index */
 #define MYSQLND_REFRESH_BACKUP_LOG	0x200000L
 
 
-#define MYSQLND_STORE_PS		1
-#define MYSQLND_STORE_NO_COPY	2
-#define MYSQLND_STORE_COPY		4
-
-enum mysqlnd_buffered_type
-{
-	MYSQLND_BUFFERED_TYPE_ZVAL = 1,
-	MYSQLND_BUFFERED_TYPE_C
-};
-
-
 #define MYSQLND_CLIENT_NO_FLAG				0
-#define MYSQLND_CLIENT_KNOWS_RSET_COPY_DATA	1
 
 #endif	/* MYSQLND_ENUM_N_DEF_H */
-
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: noet sw=4 ts=4 fdm=marker
- * vim<600: noet sw=4 ts=4
- */

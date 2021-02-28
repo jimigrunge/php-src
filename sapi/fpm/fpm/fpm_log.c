@@ -1,5 +1,3 @@
-
-	/* $Id: fpm_status.c 312262 2011-06-18 17:41:56Z felipe $ */
 	/* (c) 2009 Jerome Loyet */
 
 #include "php.h"
@@ -267,13 +265,13 @@ int fpm_log_write(char *log_format) /* {{{ */
 					/* kilobytes */
 					} else if (!strcasecmp(format, "kilobytes") || !strcasecmp(format, "kilo")) {
 						if (!test) {
-							len2 = snprintf(b, FPM_LOG_BUFFER - len, "%lu", proc.memory / 1024);
+							len2 = snprintf(b, FPM_LOG_BUFFER - len, "%zu", proc.memory / 1024);
 						}
 
 					/* megabytes */
 					} else if (!strcasecmp(format, "megabytes") || !strcasecmp(format, "mega")) {
 						if (!test) {
-							len2 = snprintf(b, FPM_LOG_BUFFER - len, "%lu", proc.memory / 1024 / 1024);
+							len2 = snprintf(b, FPM_LOG_BUFFER - len, "%zu", proc.memory / 1024 / 1024);
 						}
 
 					} else {
@@ -312,7 +310,7 @@ int fpm_log_write(char *log_format) /* {{{ */
 								continue;
 							}
 
-							/* test if enought char after the header name + ': ' */
+							/* test if enough char after the header name + ': ' */
 							if (h->header_len <= format_len + 2) {
 								h = (sapi_header_struct*)zend_llist_get_next_ex(&sapi_headers->headers, &pos);
 								continue;
@@ -467,7 +465,7 @@ int fpm_log_write(char *log_format) /* {{{ */
 
 	if (!test && strlen(buffer) > 0) {
 		buffer[len] = '\n';
-		write(fpm_log_fd, buffer, len + 1);
+		zend_quiet_write(fpm_log_fd, buffer, len + 1);
 	}
 
 	return 0;

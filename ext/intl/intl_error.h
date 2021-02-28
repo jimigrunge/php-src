@@ -1,7 +1,5 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
@@ -27,8 +25,8 @@
 
 typedef struct _intl_error {
 	UErrorCode      code;
-	char*           custom_error_message;
 	int             free_custom_error_message;
+	char*           custom_error_message;
 } intl_error;
 
 intl_error* intl_error_create( void );
@@ -48,8 +46,5 @@ void        intl_errors_set( intl_error* err, UErrorCode code, const char* msg, 
 
 // Other error helpers
 smart_str	intl_parse_error_to_string( UParseError* pe );
-
-// exported to be called on extension MINIT
-void		intl_register_IntlException_class( void );
 
 #endif // INTL_ERROR_H

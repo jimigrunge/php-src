@@ -3,7 +3,7 @@
 --SKIPIF--
 <?php
 if (PHP_INT_SIZE < 8) {
-	die("skip 64bit test only");
+    die("skip 64bit test only");
 }
 ?>
 --FILE--
@@ -32,7 +32,7 @@ print_r(unpack("q", pack("q", 0x8000000000000002)));
 print_r(unpack("q", pack("q", -1)));
 print_r(unpack("q", pack("q", 0x8000000000000000)));
 ?>
---EXPECTF--
+--EXPECT--
 Array
 (
     [1] => 281474976710654

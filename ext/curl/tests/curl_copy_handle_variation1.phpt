@@ -4,8 +4,8 @@ Test curl_copy_handle() change options in one handle
 Francesco Fullone ff@ideato.it
 #PHPTestFest Cesena Italia on 2009-06-20
 --SKIPIF--
-<?php 
-	if (!extension_loaded("curl")) exit("skip curl extension not loaded");
+<?php
+    if (!extension_loaded("curl")) exit("skip curl extension not loaded");
 ?>
 --FILE--
 <?php
@@ -25,8 +25,6 @@ curl_setopt($ch2, CURLOPT_URL, 'http://www.bar.com/');
 
 var_dump(curl_getinfo($ch) === curl_getinfo($ch2));
 ?>
-===DONE===
---EXPECTF--
+--EXPECT--
 *** Testing curl_copy_handle(): basic ***
 bool(false)
-===DONE===

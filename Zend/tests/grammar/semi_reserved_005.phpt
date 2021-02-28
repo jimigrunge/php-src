@@ -55,6 +55,7 @@ class Obj
     const SWITCH = 'switch';
     const YIELD = 'yield';
     const FUNCTION = 'function';
+    const FN = 'fn';
     const IF = 'if';
     const ENDSWITCH = 'endswitch';
     const FINALLY = 'finally';
@@ -79,7 +80,6 @@ class Obj
     const __FILE__ = '__FILE__';
     const __DIR__ = '__DIR__';
     const __NAMESPACE__ = '__NAMESPACE__';
-    const __HALT_COMPILER = '__halt_compiler';
 }
 
 echo Obj::EMPTY, PHP_EOL;
@@ -132,6 +132,7 @@ echo Obj::CONTINUE, PHP_EOL;
 echo Obj::SWITCH, PHP_EOL;
 echo Obj::YIELD, PHP_EOL;
 echo Obj::FUNCTION, PHP_EOL;
+echo Obj::FN, PHP_EOL;
 echo Obj::IF, PHP_EOL;
 echo Obj::ENDSWITCH, PHP_EOL;
 echo Obj::FINALLY, PHP_EOL;
@@ -156,11 +157,10 @@ echo Obj::__LINE__, PHP_EOL;
 echo Obj::__FILE__, PHP_EOL;
 echo Obj::__DIR__, PHP_EOL;
 echo Obj::__NAMESPACE__, PHP_EOL;
-echo Obj::__HALT_COMPILER, PHP_EOL;
 
 echo "\nDone\n";
-
---EXPECTF--
+?>
+--EXPECT--
 empty
 callable
 trait
@@ -211,6 +211,7 @@ continue
 switch
 yield
 function
+fn
 if
 endswitch
 finally
@@ -235,6 +236,5 @@ __LINE__
 __FILE__
 __DIR__
 __NAMESPACE__
-__halt_compiler
 
 Done

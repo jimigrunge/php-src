@@ -4,19 +4,23 @@ Bug #70689 (Exception handler does not work as expected)
 <?php
 
 function foo($foo) {
-	echo "Executing foo\n";
+    echo "Executing foo\n";
 }
 
 set_error_handler(function($errno, $errstr) {
-	throw new Exception($errstr);
+    throw new Exception($errstr);
 });
 
 try {
-	foo();
+    foo();
 } catch (Exception $e) {
-	echo $e->getMessage(), "\n";
+    echo $e->getMessage(), "\n";
 }
 
 ?>
 --EXPECTF--
-Missing argument 1 for foo(), called in %sbug70689.php on line %d and defined
+Fatal error: Uncaught ArgumentCountError: Too few arguments to function foo(), 0 passed in %sbug70689.php on line 12 and exactly 1 expected in %sbug70689.php:3
+Stack trace:
+#0 %sbug70689.php(12): foo()
+#1 {main}
+  thrown in %sbug70689.php on line 3

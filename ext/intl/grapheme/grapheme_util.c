@@ -1,7 +1,5 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
@@ -59,20 +57,6 @@ void grapheme_substr_ascii(char *str, size_t str_len, int32_t f, int32_t l, char
     	return;
     }
 
-    if ((l < 0 && -l > str_len2)) {
-        return;
-    } else if (l > 0 && l > str_len2) {
-        l = str_len2;
-    }
-
-    if (f > str_len2 || (f < 0 && -f > str_len2)) {
-        return;
-    }
-
-    if (l < 0 && str_len2 < f - l) {
-        return;
-    }
-
     /* if "from" position is negative, count start position from the end
      * of the string
      */
@@ -81,8 +65,9 @@ void grapheme_substr_ascii(char *str, size_t str_len, int32_t f, int32_t l, char
         if (f < 0) {
             f = 0;
         }
-    }
-
+    } else if (f > str_len2) {
+		f = str_len2;
+	}
 
     /* if "length" position is negative, set it to the length
      * needed to stop that many chars from the end of the string
@@ -92,40 +77,21 @@ void grapheme_substr_ascii(char *str, size_t str_len, int32_t f, int32_t l, char
         if (l < 0) {
             l = 0;
         }
-    }
-
-    if (f >= str_len2) {
-        return;
-    }
-
-    if ((f + l) > str_len2) {
-        l = str_len - f;
-    }
+    } else if (l > str_len2 - f) {
+		l = str_len2 - f;
+	}
 
     *sub_str = str + f;
     *sub_str_len = l;
-
-    return;
 }
 /* }}} */
 
-#define STRPOS_CHECK_STATUS(status, error) 							\
-	if ( U_FAILURE( (status) ) ) { 									\
-		intl_error_set_code( NULL, (status) ); 			\
-		intl_error_set_custom_msg( NULL, (error), 0 ); 	\
-		if (uhaystack) { 											\
-			efree( uhaystack ); 									\
-		} 															\
-		if (uneedle) { 												\
-			efree( uneedle ); 										\
-		} 															\
-		if(bi) { 													\
-			ubrk_close (bi); 										\
-		} 															\
-		if(src) {													\
-			usearch_close(src);										\
-		}															\
-		return -1; 													\
+#define STRPOS_CHECK_STATUS(status, error) \
+	if ( U_FAILURE( (status) ) ) { \
+		intl_error_set_code( NULL, (status) ); \
+		intl_error_set_custom_msg( NULL, (error), 0 ); \
+		ret_pos = -1; \
+		goto finish; \
 	}
 
 
@@ -138,7 +104,6 @@ int32_t grapheme_strpos_utf16(char *haystack, size_t haystack_len, char *needle,
 	UBreakIterator* bi = NULL;
 	UErrorCode status;
 	UStringSearch* src = NULL;
-	UCollator *coll;
 
 	if(puchar_pos) {
 		*puchar_pos = -1;
@@ -161,12 +126,23 @@ int32_t grapheme_strpos_utf16(char *haystack, size_t haystack_len, char *needle,
 	ubrk_setText(bi, uhaystack, uhaystack_len, &status);
 	STRPOS_CHECK_STATUS(status, "Failed to set up iterator");
 
+	if (uneedle_len == 0) {
+		offset_pos = grapheme_get_haystack_offset(bi, offset);
+		if (offset_pos == -1) {
+			zend_argument_value_error(3, "must be contained in argument #1 ($haystack)");
+			ret_pos = -1;
+			goto finish;
+		}
+		ret_pos = last && offset >= 0 ? uhaystack_len : offset_pos;
+		goto finish;
+	}
+
 	status = U_ZERO_ERROR;
 	src = usearch_open(uneedle, uneedle_len, uhaystack, uhaystack_len, "", bi, &status);
 	STRPOS_CHECK_STATUS(status, "Error creating search object");
 
 	if(f_ignore_case) {
-		coll = usearch_getCollator(src);
+		UCollator *coll = usearch_getCollator(src);
 		status = U_ZERO_ERROR;
 		ucol_setAttribute(coll, UCOL_STRENGTH, UCOL_SECONDARY, &status);
 		STRPOS_CHECK_STATUS(status, "Error setting collation strength");
@@ -175,9 +151,10 @@ int32_t grapheme_strpos_utf16(char *haystack, size_t haystack_len, char *needle,
 
 	if(offset != 0) {
 		offset_pos = grapheme_get_haystack_offset(bi, offset);
-		if(offset_pos == -1) {
-			status = U_ILLEGAL_ARGUMENT_ERROR;
-			STRPOS_CHECK_STATUS(status, "Invalid search offset");
+		if (offset_pos == -1) {
+			zend_argument_value_error(3, "must be contained in argument #1 ($haystack)");
+			ret_pos = -1;
+			goto finish;
 		}
 		status = U_ZERO_ERROR;
 		usearch_setOffset(src, offset_pos, &status);
@@ -204,14 +181,19 @@ int32_t grapheme_strpos_utf16(char *haystack, size_t haystack_len, char *needle,
 		ret_pos = -1;
 	}
 
+finish:
 	if (uhaystack) {
 		efree( uhaystack );
 	}
 	if (uneedle) {
 		efree( uneedle );
 	}
-	ubrk_close (bi);
-	usearch_close (src);
+	if (bi) {
+		ubrk_close (bi);
+	}
+	if (src) {
+		usearch_close (src);
+	}
 
 	return ret_pos;
 }
@@ -223,7 +205,7 @@ zend_long grapheme_ascii_check(const unsigned char *day, size_t len)
 {
 	int ret_len = len;
 	while ( len-- ) {
-	if ( *day++ > 0x7f )
+	if ( *day++ > 0x7f || (*day == '\n' && *(day - 1) == '\r') )
 		return -1;
 	}
 
@@ -345,7 +327,7 @@ grapheme_strrpos_ascii(char *haystack, size_t haystack_len, char *needle, size_t
 		e = haystack + haystack_len - needle_len;
 	} else {
 		p = haystack;
-		if (needle_len > -offset) {
+		if (needle_len > (size_t)-offset) {
 			e = haystack + haystack_len - needle_len;
 		} else {
 			e = haystack + haystack_len + offset;
@@ -398,13 +380,3 @@ UBreakIterator* grapheme_get_break_iterator(void *stack_buffer, UErrorCode *stat
 	return ubrk_safeClone(global_break_iterator, stack_buffer, &buffer_size, status);
 }
 /* }}} */
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: fdm=marker
- * vim: noet sw=4 ts=4
- */
-

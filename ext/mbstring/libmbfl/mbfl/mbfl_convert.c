@@ -28,16 +28,9 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#ifdef HAVE_STDDEF_H
 #include <stddef.h>
-#endif
 
 #include "mbfl_encoding.h"
-#include "mbfl_allocators.h"
 #include "mbfl_filter_output.h"
 #include "mbfilter_pass.h"
 #include "mbfilter_8bit.h"
@@ -64,29 +57,9 @@
 #include "filters/mbfilter_euc_jp_2004.h"
 #include "filters/mbfilter_euc_jp_win.h"
 #include "filters/mbfilter_gb18030.h"
-#include "filters/mbfilter_ascii.h"
-#include "filters/mbfilter_koi8r.h"
-#include "filters/mbfilter_koi8u.h"
-#include "filters/mbfilter_cp866.h"
 #include "filters/mbfilter_cp932.h"
 #include "filters/mbfilter_cp936.h"
-#include "filters/mbfilter_cp1251.h"
-#include "filters/mbfilter_cp1252.h"
-#include "filters/mbfilter_cp1254.h"
 #include "filters/mbfilter_cp5022x.h"
-#include "filters/mbfilter_iso8859_1.h"
-#include "filters/mbfilter_iso8859_2.h"
-#include "filters/mbfilter_iso8859_3.h"
-#include "filters/mbfilter_iso8859_4.h"
-#include "filters/mbfilter_iso8859_5.h"
-#include "filters/mbfilter_iso8859_6.h"
-#include "filters/mbfilter_iso8859_7.h"
-#include "filters/mbfilter_iso8859_8.h"
-#include "filters/mbfilter_iso8859_9.h"
-#include "filters/mbfilter_iso8859_10.h"
-#include "filters/mbfilter_iso8859_13.h"
-#include "filters/mbfilter_iso8859_14.h"
-#include "filters/mbfilter_iso8859_15.h"
 #include "filters/mbfilter_base64.h"
 #include "filters/mbfilter_qprint.h"
 #include "filters/mbfilter_uuencode.h"
@@ -97,205 +70,34 @@
 #include "filters/mbfilter_utf8_mobile.h"
 #include "filters/mbfilter_utf16.h"
 #include "filters/mbfilter_utf32.h"
-#include "filters/mbfilter_byte2.h"
-#include "filters/mbfilter_byte4.h"
 #include "filters/mbfilter_ucs4.h"
 #include "filters/mbfilter_ucs2.h"
 #include "filters/mbfilter_htmlent.h"
-#include "filters/mbfilter_armscii8.h"
-#include "filters/mbfilter_cp850.h"
+#include "filters/mbfilter_singlebyte.h"
 
 /* hex character table "0123456789ABCDEF" */
 static char mbfl_hexchar_table[] = {
 	0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39,0x41,0x42,0x43,0x44,0x45,0x46
 };
 
-const struct mbfl_convert_vtbl *mbfl_convert_filter_list[] = {
-	&vtbl_utf8_wchar,
-	&vtbl_wchar_utf8,
-	&vtbl_eucjp_wchar,
-	&vtbl_wchar_eucjp,
-	&vtbl_sjis_wchar,
-	&vtbl_wchar_sjis,
-	&vtbl_sjis_open_wchar,
-	&vtbl_wchar_sjis_open,
-	&vtbl_sjis2004_wchar,
-	&vtbl_wchar_sjis2004,
-	&vtbl_cp51932_wchar,
-	&vtbl_wchar_cp51932,
-	&vtbl_jis_wchar,
-	&vtbl_wchar_jis,
-	&vtbl_jis_ms_wchar,
-	&vtbl_wchar_jis_ms,
-	&vtbl_2022jp_wchar,
-	&vtbl_wchar_2022jp,
-	&vtbl_2022jpms_wchar,
-	&vtbl_wchar_2022jpms,
-	&vtbl_2022jp_2004_wchar,
-	&vtbl_wchar_2022jp_2004,
-	&vtbl_2022jp_kddi_wchar,
-	&vtbl_wchar_2022jp_kddi,
-	&vtbl_eucjpwin_wchar,
-	&vtbl_wchar_eucjpwin,
-	&vtbl_eucjp2004_wchar,
-	&vtbl_wchar_eucjp2004,
-	&vtbl_cp932_wchar,
-	&vtbl_wchar_cp932,
- 	&vtbl_sjis_docomo_wchar,
- 	&vtbl_wchar_sjis_docomo,
- 	&vtbl_sjis_kddi_wchar,
- 	&vtbl_wchar_sjis_kddi,
- 	&vtbl_sjis_sb_wchar,
- 	&vtbl_wchar_sjis_sb,
- 	&vtbl_sjis_mac_wchar,
- 	&vtbl_wchar_sjis_mac,
-	&vtbl_utf8_docomo_wchar,
-	&vtbl_wchar_utf8_docomo,
-	&vtbl_utf8_kddi_a_wchar,
-	&vtbl_wchar_utf8_kddi_a,
-	&vtbl_utf8_kddi_b_wchar,
-	&vtbl_wchar_utf8_kddi_b,
-	&vtbl_utf8_sb_wchar,
-	&vtbl_wchar_utf8_sb,
-	&vtbl_euccn_wchar,
-	&vtbl_wchar_euccn,
-	&vtbl_cp936_wchar,
-	&vtbl_wchar_cp936,
-	&vtbl_gb18030_wchar,
-	&vtbl_wchar_gb18030,
-	&vtbl_hz_wchar,
-	&vtbl_wchar_hz,
-	&vtbl_euctw_wchar,
-	&vtbl_wchar_euctw,
-	&vtbl_big5_wchar,
-	&vtbl_wchar_big5,
-	&vtbl_cp950_wchar,
-	&vtbl_wchar_cp950,
-	&vtbl_euckr_wchar,
-	&vtbl_wchar_euckr,
-	&vtbl_uhc_wchar,
-	&vtbl_wchar_uhc,
-	&vtbl_2022kr_wchar,
-	&vtbl_wchar_2022kr,
-	&vtbl_cp1251_wchar,
-	&vtbl_wchar_cp1251,
-	&vtbl_cp866_wchar,
-	&vtbl_wchar_cp866,
-	&vtbl_koi8r_wchar,
-	&vtbl_wchar_koi8r,
-	&vtbl_koi8u_wchar,
-	&vtbl_wchar_koi8u,
-	&vtbl_cp1252_wchar,
-	&vtbl_wchar_cp1252,
-	&vtbl_cp1254_wchar,
-	&vtbl_wchar_cp1254,
-	&vtbl_cp50220_wchar,
-	&vtbl_wchar_cp50220,
-	&vtbl_cp50220raw_wchar,
-	&vtbl_wchar_cp50220raw,
-	&vtbl_cp50221_wchar,
-	&vtbl_wchar_cp50221,
-	&vtbl_cp50222_wchar,
-	&vtbl_wchar_cp50222,
-	&vtbl_ascii_wchar,
-	&vtbl_wchar_ascii,
-	&vtbl_8859_1_wchar,
-	&vtbl_wchar_8859_1,
-	&vtbl_8859_2_wchar,
-	&vtbl_wchar_8859_2,
-	&vtbl_8859_3_wchar,
-	&vtbl_wchar_8859_3,
-	&vtbl_8859_4_wchar,
-	&vtbl_wchar_8859_4,
-	&vtbl_8859_5_wchar,
-	&vtbl_wchar_8859_5,
-	&vtbl_8859_6_wchar,
-	&vtbl_wchar_8859_6,
-	&vtbl_8859_7_wchar,
-	&vtbl_wchar_8859_7,
-	&vtbl_8859_8_wchar,
-	&vtbl_wchar_8859_8,
-	&vtbl_8859_9_wchar,
-	&vtbl_wchar_8859_9,
-	&vtbl_8859_10_wchar,
-	&vtbl_wchar_8859_10,
-	&vtbl_8859_13_wchar,
-	&vtbl_wchar_8859_13,
-	&vtbl_8859_14_wchar,
-	&vtbl_wchar_8859_14,
-	&vtbl_8859_15_wchar,
-	&vtbl_wchar_8859_15,
+static const struct mbfl_convert_vtbl *mbfl_special_filter_list[] = {
 	&vtbl_8bit_b64,
 	&vtbl_b64_8bit,
 	&vtbl_uuencode_8bit,
-	&vtbl_wchar_html,
-	&vtbl_html_wchar,
 	&vtbl_8bit_qprint,
 	&vtbl_qprint_8bit,
 	&vtbl_8bit_7bit,
 	&vtbl_7bit_8bit,
-	&vtbl_utf7_wchar,
-	&vtbl_wchar_utf7,
-	&vtbl_utf7imap_wchar,
-	&vtbl_wchar_utf7imap,
-	&vtbl_utf16_wchar,
-	&vtbl_wchar_utf16,
-	&vtbl_utf16be_wchar,
-	&vtbl_wchar_utf16be,
-	&vtbl_utf16le_wchar,
-	&vtbl_wchar_utf16le,
-	&vtbl_utf32_wchar,
-	&vtbl_wchar_utf32,
-	&vtbl_utf32be_wchar,
-	&vtbl_wchar_utf32be,
-	&vtbl_utf32le_wchar,
-	&vtbl_wchar_utf32le,
-	&vtbl_ucs4_wchar,
-	&vtbl_wchar_ucs4,
-	&vtbl_ucs4be_wchar,
-	&vtbl_wchar_ucs4be,
-	&vtbl_ucs4le_wchar,
-	&vtbl_wchar_ucs4le,
-	&vtbl_ucs2_wchar,
-	&vtbl_wchar_ucs2,
-	&vtbl_ucs2be_wchar,
-	&vtbl_wchar_ucs2be,
-	&vtbl_ucs2le_wchar,
-	&vtbl_wchar_ucs2le,
-	&vtbl_byte4be_wchar,
-	&vtbl_wchar_byte4be,
-	&vtbl_byte4le_wchar,
-	&vtbl_wchar_byte4le,
-	&vtbl_byte2be_wchar,
-	&vtbl_wchar_byte2be,
-	&vtbl_byte2le_wchar,
-	&vtbl_wchar_byte2le,
-	&vtbl_armscii8_wchar,
-	&vtbl_wchar_armscii8,
-	&vtbl_cp850_wchar,
-	&vtbl_wchar_cp850,
 	&vtbl_pass,
 	NULL
 };
 
-static int
-mbfl_convert_filter_common_init(
-	mbfl_convert_filter *filter,
-	enum mbfl_no_encoding from,
-	enum mbfl_no_encoding to,
-	const struct mbfl_convert_vtbl *vtbl,
-    int (*output_function)(int, void* ),
-    int (*flush_function)(void*),
-    void* data)
+static void mbfl_convert_filter_init(mbfl_convert_filter *filter, const mbfl_encoding *from, const mbfl_encoding *to,
+	const struct mbfl_convert_vtbl *vtbl, output_function_t output_function, flush_function_t flush_function, void* data)
 {
 	/* encoding structure */
-	if ((filter->from = mbfl_no2encoding(from)) == NULL) {
-		return 1;
-	}
-
-	if ((filter->to = mbfl_no2encoding(to)) == NULL) {
-		return 1;
-	}
+	filter->from = from;
+	filter->to = to;
 
 	if (output_function != NULL) {
 		filter->output_function = output_function;
@@ -306,124 +108,88 @@ mbfl_convert_filter_common_init(
 	filter->flush_function = flush_function;
 	filter->data = data;
 	filter->illegal_mode = MBFL_OUTPUTFILTER_ILLEGAL_MODE_CHAR;
-	filter->illegal_substchar = 0x3f;		/* '?' */
+	filter->illegal_substchar = '?';
 	filter->num_illegalchar = 0;
 	filter->filter_ctor = vtbl->filter_ctor;
 	filter->filter_dtor = vtbl->filter_dtor;
 	filter->filter_function = vtbl->filter_function;
-	filter->filter_flush = vtbl->filter_flush;
+	filter->filter_flush = (filter_flush_t)vtbl->filter_flush;
 	filter->filter_copy = vtbl->filter_copy;
 
 	(*filter->filter_ctor)(filter);
-
-	return 0;
 }
 
-
-mbfl_convert_filter *
-mbfl_convert_filter_new(
-    enum mbfl_no_encoding from,
-    enum mbfl_no_encoding to,
-    int (*output_function)(int, void* ),
-    int (*flush_function)(void*),
-    void* data)
+mbfl_convert_filter* mbfl_convert_filter_new(const mbfl_encoding *from, const mbfl_encoding *to, output_function_t output_function,
+	flush_function_t flush_function, void* data)
 {
-	mbfl_convert_filter * filter;
-	const struct mbfl_convert_vtbl *vtbl;
-
-	vtbl = mbfl_convert_filter_get_vtbl(from, to);
-
+	const struct mbfl_convert_vtbl *vtbl = mbfl_convert_filter_get_vtbl(from, to);
 	if (vtbl == NULL) {
-		vtbl = &vtbl_pass;
-	}
-
-	/* allocate */
-	filter = (mbfl_convert_filter *)mbfl_malloc(sizeof(mbfl_convert_filter));
-	if (filter == NULL) {
 		return NULL;
 	}
 
-	if (mbfl_convert_filter_common_init(filter, from, to, vtbl,
-			output_function, flush_function, data)) {
-		mbfl_free(filter);
-		return NULL;
-	}
-
+	mbfl_convert_filter *filter = emalloc(sizeof(mbfl_convert_filter));
+	mbfl_convert_filter_init(filter, from, to, vtbl, output_function, flush_function, data);
 	return filter;
 }
 
-mbfl_convert_filter *
-mbfl_convert_filter_new2(
-	const struct mbfl_convert_vtbl *vtbl,
-    int (*output_function)(int, void* ),
-    int (*flush_function)(void*),
-    void* data)
+mbfl_convert_filter* mbfl_convert_filter_new2(const struct mbfl_convert_vtbl *vtbl, output_function_t output_function,
+	flush_function_t flush_function, void* data)
 {
-	mbfl_convert_filter * filter;
+	const mbfl_encoding *from_encoding = mbfl_no2encoding(vtbl->from);
+	const mbfl_encoding *to_encoding = mbfl_no2encoding(vtbl->to);
 
-	if (vtbl == NULL) {
-		vtbl = &vtbl_pass;
-	}
-
-	/* allocate */
-	filter = (mbfl_convert_filter *)mbfl_malloc(sizeof(mbfl_convert_filter));
-	if (filter == NULL) {
-		return NULL;
-	}
-
-	if (mbfl_convert_filter_common_init(filter, vtbl->from, vtbl->to, vtbl,
-			output_function, flush_function, data)) {
-		mbfl_free(filter);
-		return NULL;
-	}
-
+	mbfl_convert_filter *filter = emalloc(sizeof(mbfl_convert_filter));
+	mbfl_convert_filter_init(filter, from_encoding, to_encoding, vtbl, output_function, flush_function, data);
 	return filter;
 }
 
-void
-mbfl_convert_filter_delete(mbfl_convert_filter *filter)
+void mbfl_convert_filter_delete(mbfl_convert_filter *filter)
 {
-	if (filter) {
+	if (filter->filter_dtor) {
 		(*filter->filter_dtor)(filter);
-		mbfl_free((void*)filter);
 	}
+	efree(filter);
 }
 
-int
-mbfl_convert_filter_feed(int c, mbfl_convert_filter *filter)
+/* Feed a char, return 0 if ok - used by mailparse ext */
+int mbfl_convert_filter_feed(int c, mbfl_convert_filter *filter)
 {
 	return (*filter->filter_function)(c, filter);
 }
 
-int
-mbfl_convert_filter_flush(mbfl_convert_filter *filter)
+/* Feed string into `filter` byte by byte; return pointer to first byte not processed */
+unsigned char* mbfl_convert_filter_feed_string(mbfl_convert_filter *filter, unsigned char *p, size_t len)
 {
-	(*filter->filter_flush)(filter);
-	return (filter->flush_function ? (*filter->flush_function)(filter->data) : 0);
+	while (len--) {
+		if ((*filter->filter_function)(*p++, filter) < 0) {
+			break;
+		}
+	}
+	return p;
 }
 
-void mbfl_convert_filter_reset(mbfl_convert_filter *filter,
-	    enum mbfl_no_encoding from, enum mbfl_no_encoding to)
+int mbfl_convert_filter_flush(mbfl_convert_filter *filter)
 {
-	const struct mbfl_convert_vtbl *vtbl;
+	(*filter->filter_flush)(filter);
+	return 0;
+}
 
-	/* destruct old filter */
-	(*filter->filter_dtor)(filter);
+void mbfl_convert_filter_reset(mbfl_convert_filter *filter, const mbfl_encoding *from, const mbfl_encoding *to)
+{
+	if (filter->filter_dtor) {
+		(*filter->filter_dtor)(filter);
+	}
 
-	vtbl = mbfl_convert_filter_get_vtbl(from, to);
+	const struct mbfl_convert_vtbl *vtbl = mbfl_convert_filter_get_vtbl(from, to);
 
 	if (vtbl == NULL) {
 		vtbl = &vtbl_pass;
 	}
 
-	mbfl_convert_filter_common_init(filter, from, to, vtbl,
-			filter->output_function, filter->flush_function, filter->data);
+	mbfl_convert_filter_init(filter, from, to, vtbl, filter->output_function, filter->flush_function, filter->data);
 }
 
-void
-mbfl_convert_filter_copy(
-    mbfl_convert_filter *src,
-    mbfl_convert_filter *dest)
+void mbfl_convert_filter_copy(mbfl_convert_filter *src, mbfl_convert_filter *dest)
 {
 	if (src->filter_copy != NULL) {
 		src->filter_copy(src, dest);
@@ -433,28 +199,15 @@ mbfl_convert_filter_copy(
 	*dest = *src;
 }
 
-int mbfl_convert_filter_devcat(mbfl_convert_filter *filter, mbfl_memory_device *src)
+void mbfl_convert_filter_devcat(mbfl_convert_filter *filter, mbfl_memory_device *src)
 {
-	int n;
-	unsigned char *p;
-
-	p = src->buffer;
-	n = src->pos;
-	while (n > 0) {
-		if ((*filter->filter_function)(*p++, filter) < 0) {
-			return -1;
-		}
-		n--;
-	}
-
-	return n;
+	mbfl_convert_filter_feed_string(filter, src->buffer, src->pos);
 }
 
 int mbfl_convert_filter_strcat(mbfl_convert_filter *filter, const unsigned char *p)
 {
 	int c;
-
-	while ((c = *p++) != '\0') {
+	while ((c = *p++)) {
 		if ((*filter->filter_function)(c, filter) < 0) {
 			return -1;
 		}
@@ -464,17 +217,27 @@ int mbfl_convert_filter_strcat(mbfl_convert_filter *filter, const unsigned char 
 }
 
 /* illegal character output function for conv-filter */
-int
-mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
+int mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
 {
-	int mode_backup, ret, n, m, r;
+	int n, m, r;
 
-	ret = 0;
-	mode_backup = filter->illegal_mode;
-	filter->illegal_mode = MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE;
+	int ret = 0;
+	int mode_backup = filter->illegal_mode;
+	int substchar_backup = filter->illegal_substchar;
+
+	/* The used substitution character may not be supported by the target character encoding.
+	 * If that happens, first try to use "?" instead and if that also fails, silently drop the
+	 * character. */
+	if (filter->illegal_mode == MBFL_OUTPUTFILTER_ILLEGAL_MODE_CHAR
+			&& filter->illegal_substchar != '?') {
+		filter->illegal_substchar = '?';
+	} else {
+		filter->illegal_mode = MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE;
+	}
+
 	switch (mode_backup) {
 	case MBFL_OUTPUTFILTER_ILLEGAL_MODE_CHAR:
-		ret = (*filter->filter_function)(filter->illegal_substchar, filter);
+		ret = (*filter->filter_function)(substchar_backup, filter);
 		break;
 	case MBFL_OUTPUTFILTER_ILLEGAL_MODE_LONG:
 		if (c >= 0) {
@@ -498,9 +261,6 @@ mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
 						break;
 					case MBFL_WCSPLANE_GB18030:
 						ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"GB+");
-						break;
-					case MBFL_WCSPLANE_8859_1:
-						ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"I8859_1+");
 						break;
 					default:
 						ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)"?+");
@@ -526,7 +286,7 @@ mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
 					}
 					r -= 4;
 				}
-				if (m == 0 && ret >= 0) {
+				if (m == 0) {
 					ret = (*filter->filter_function)(mbfl_hexchar_table[0], filter);
 				}
 			}
@@ -552,76 +312,72 @@ mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
 					}
 					r -= 4;
 				}
-				if (ret < 0) {
-					break;
-				}
 				if (m == 0) {
-					ret = (*filter->filter_function)(mbfl_hexchar_table[0], filter);
+					/* illegal character was zero; no hex digits were output by above loop */
+					ret = (*filter->filter_function)('0', filter);
 				}
 				ret = mbfl_convert_filter_strcat(filter, (const unsigned char *)";");
 			} else {
-				ret = (*filter->filter_function)(filter->illegal_substchar, filter);
+				ret = (*filter->filter_function)(substchar_backup, filter);
 			}
 		}
 		break;
+	case MBFL_OUTPUTFILTER_ILLEGAL_MODE_NONE:
 	default:
 		break;
 	}
+
 	filter->illegal_mode = mode_backup;
+	filter->illegal_substchar = substchar_backup;
 	filter->num_illegalchar++;
 
 	return ret;
 }
 
-const struct mbfl_convert_vtbl * mbfl_convert_filter_get_vtbl(enum mbfl_no_encoding from, enum mbfl_no_encoding to)
+const struct mbfl_convert_vtbl* mbfl_convert_filter_get_vtbl(const mbfl_encoding *from, const mbfl_encoding *to)
 {
-	const struct mbfl_convert_vtbl *vtbl;
-	int i;
-
-	if (to == mbfl_no_encoding_base64 ||
-	    to == mbfl_no_encoding_qprint ||
-	    to == mbfl_no_encoding_7bit) {
-		from = mbfl_no_encoding_8bit;
-	} else if (from == mbfl_no_encoding_base64 ||
-			   from == mbfl_no_encoding_qprint ||
-			   from == mbfl_no_encoding_uuencode) {
-		to = mbfl_no_encoding_8bit;
+	if (to->no_encoding == mbfl_no_encoding_base64 ||
+	    to->no_encoding == mbfl_no_encoding_qprint ||
+	    to->no_encoding == mbfl_no_encoding_7bit) {
+		from = &mbfl_encoding_8bit;
+	} else if (from->no_encoding == mbfl_no_encoding_base64 ||
+			   from->no_encoding == mbfl_no_encoding_qprint ||
+			   from->no_encoding == mbfl_no_encoding_uuencode) {
+		to = &mbfl_encoding_8bit;
 	}
 
-	i = 0;
-	while ((vtbl = mbfl_convert_filter_list[i++]) != NULL){
-		if (vtbl->from == from && vtbl->to == to) {
-			return vtbl;
+	if (to == from && (to == &mbfl_encoding_wchar || to == &mbfl_encoding_8bit)) {
+		return &vtbl_pass;
+	}
+
+	if (to->no_encoding == mbfl_no_encoding_wchar) {
+		return from->input_filter;
+	} else if (from->no_encoding == mbfl_no_encoding_wchar) {
+		return to->output_filter;
+	} else {
+		int i = 0;
+		const struct mbfl_convert_vtbl *vtbl;
+		while ((vtbl = mbfl_special_filter_list[i++])) {
+			if (vtbl->from == from->no_encoding && vtbl->to == to->no_encoding) {
+				return vtbl;
+			}
 		}
+		return NULL;
 	}
-
-	return NULL;
 }
 
 /*
- * commonly used constructor and destructor
+ * commonly used constructor
  */
 void mbfl_filt_conv_common_ctor(mbfl_convert_filter *filter)
 {
-	filter->status = 0;
-	filter->cache = 0;
+	filter->status = filter->cache = 0;
 }
 
 int mbfl_filt_conv_common_flush(mbfl_convert_filter *filter)
 {
-	filter->status = 0;
-	filter->cache = 0;
-
-	if (filter->flush_function != NULL) {
+	if (filter->flush_function) {
 		(*filter->flush_function)(filter->data);
 	}
 	return 0;
 }
-
-void mbfl_filt_conv_common_dtor(mbfl_convert_filter *filter)
-{
-	filter->status = 0;
-	filter->cache = 0;
-}
-
-

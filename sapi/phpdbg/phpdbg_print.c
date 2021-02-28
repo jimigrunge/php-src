@@ -1,8 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -217,11 +215,13 @@ PHPDBG_PRINT(func) /* {{{ */
 	zend_string *lcname;
 	/* search active scope if begins with period */
 	if (func_name[0] == '.') {
-		if (EG(scope)) {
+		zend_class_entry *scope = zend_get_executed_scope();
+
+		if (scope) {
 			func_name++;
 			func_name_len--;
 
-			func_table = &EG(scope)->function_table;
+			func_table = &scope->function_table;
 		} else {
 			phpdbg_error("inactive", "type=\"noclasses\"", "No active class");
 			return SUCCESS;
@@ -320,7 +320,7 @@ void phpdbg_print_opcodes_method(const char *class, const char *function) {
 static void phpdbg_print_opcodes_ce(zend_class_entry *ce) {
 	zend_function *method;
 	zend_string *method_name;
-	zend_bool first = 1;
+	bool first = 1;
 
 	phpdbg_out("%s %s: %s\n",
 		(ce->type == ZEND_USER_CLASS) ?
@@ -368,14 +368,14 @@ void phpdbg_print_opcodes_class(const char *class) {
 				}
 			}
 		} ZEND_HASH_FOREACH_END();
-		
+
 		return;
 	}
 
 	phpdbg_print_opcodes_ce(ce);
 }
 
-PHPDBG_API void phpdbg_print_opcodes(char *function)
+PHPDBG_API void phpdbg_print_opcodes(const char *function)
 {
 	if (function == NULL) {
 		phpdbg_print_opcodes_main();
@@ -401,12 +401,12 @@ PHPDBG_API void phpdbg_print_opcodes(char *function)
 			}
 		} ZEND_HASH_FOREACH_END();
 	} else {
-		function = zend_str_tolower_dup(function, strlen(function));
+		char *function_lowercase = zend_str_tolower_dup(function, strlen(function));
 
-		if (strstr(function, "::") == NULL) {
-			phpdbg_print_opcodes_function(function, strlen(function));
+		if (strstr(function_lowercase, "::") == NULL) {
+			phpdbg_print_opcodes_function(function_lowercase, strlen(function_lowercase));
 		} else {
-			char *method_name, *class_name = strtok(function, "::");
+			char *method_name, *class_name = strtok(function_lowercase, "::");
 			if ((method_name = strtok(NULL, "::")) == NULL) {
 				phpdbg_print_opcodes_class(class_name);
 			} else {
@@ -414,6 +414,6 @@ PHPDBG_API void phpdbg_print_opcodes(char *function)
 			}
 		}
 
-		efree(function);
+		efree(function_lowercase);
 	}
 }

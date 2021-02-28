@@ -3,16 +3,6 @@ Scalar type missing parameters
 --FILE--
 <?php
 
-$errnames = [
-    E_NOTICE => 'E_NOTICE',
-    E_WARNING => 'E_WARNING',
-    E_RECOVERABLE_ERROR => 'E_RECOVERABLE_ERROR'
-];
-set_error_handler(function (int $errno, string $errmsg, string $file, int $line) use ($errnames) {
-    echo "$errnames[$errno]: $errmsg on line $line\n";
-    return true;
-});
-
 $functions = [
     'int' => function (int $i) { return $i; },
     'float' => function (float $f) { return $f; },
@@ -28,20 +18,21 @@ foreach ($functions as $type => $function) {
     echo "Testing $type:", PHP_EOL;
     try {
         var_dump($function());
-    } catch (TypeError $e) {
+    } catch (Throwable $e) {
         echo "*** Caught " . $e->getMessage() . PHP_EOL;
     }
 }
 echo PHP_EOL . "Done";
+?>
 --EXPECTF--
 Testing int:
-*** Caught Argument 1 passed to {closure}() must be of the type integer, none given, called in %s on line %d
+*** Caught Too few arguments to function {closure}(), 0 passed in %s on line %d and exactly 1 expected
 Testing float:
-*** Caught Argument 1 passed to {closure}() must be of the type float, none given, called in %s on line %d
+*** Caught Too few arguments to function {closure}(), 0 passed in %s on line %d and exactly 1 expected
 Testing string:
-*** Caught Argument 1 passed to {closure}() must be of the type string, none given, called in %s on line %d
+*** Caught Too few arguments to function {closure}(), 0 passed in %s on line %d and exactly 1 expected
 Testing bool:
-*** Caught Argument 1 passed to {closure}() must be of the type boolean, none given, called in %s on line %d
+*** Caught Too few arguments to function {closure}(), 0 passed in %s on line %d and exactly 1 expected
 Testing int nullable:
 NULL
 Testing float nullable:

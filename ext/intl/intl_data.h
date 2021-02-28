@@ -1,7 +1,5 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
@@ -45,7 +43,7 @@ typedef struct _intl_data {
 	obj = Z_##oclass##_P( object );												\
     intl_error_reset( INTL_DATA_ERROR_P(obj) );						\
 
-/* Check status by error code, if error - exit */
+/* Check status by error code, if error return false */
 #define INTL_CHECK_STATUS(err, msg)											\
     intl_error_set_code( NULL, (err) );							\
     if( U_FAILURE((err)) )													\
@@ -54,6 +52,16 @@ typedef struct _intl_data {
         RETURN_FALSE;														\
     }
 
+/* Check status by error code, if error return null */
+#define INTL_CHECK_STATUS_OR_NULL(err, msg)                     \
+    intl_error_set_code( NULL, (err) );             \
+    if( U_FAILURE((err)) )                          \
+    {                                   \
+        intl_error_set_custom_msg( NULL, msg, 0 );        \
+        RETURN_NULL();                           \
+    }
+
+
 /* Check status in object, if error return false */
 #define INTL_METHOD_CHECK_STATUS(obj, msg)											\
     intl_error_set_code( NULL, INTL_DATA_ERROR_CODE((obj)) );				\
@@ -61,6 +69,16 @@ typedef struct _intl_data {
     {																				\
         intl_errors_set_custom_msg( INTL_DATA_ERROR_P((obj)), msg, 0 );	\
         RETURN_FALSE;										\
+    }
+
+/* Check status in object, if error goto a label */
+#define INTL_METHOD_CHECK_STATUS_OR_GOTO(obj, msg, label)							\
+    intl_error_set_code( NULL, INTL_DATA_ERROR_CODE((obj)) );						\
+    if( U_FAILURE( INTL_DATA_ERROR_CODE((obj)) ) )									\
+    {																				\
+        intl_errors_set_custom_msg( INTL_DATA_ERROR_P((obj)), msg, 0 );				\
+        RETVAL_FALSE;																\
+        goto label;																	\
     }
 
 /* Check status in object, if error return null */
@@ -93,19 +111,23 @@ typedef struct _intl_data {
 	RETVAL_NEW_STR(u8str);																		\
 }
 
-#define INTL_MAX_LOCALE_LEN 80
+#define INTL_MAX_LOCALE_LEN (ULOC_FULLNAME_CAPACITY-1)
 
 #define INTL_CHECK_LOCALE_LEN(locale_len)												\
 	if((locale_len) > INTL_MAX_LOCALE_LEN) {											\
-		intl_error_set( NULL, U_ILLEGAL_ARGUMENT_ERROR,									\
-		"Locale string too long, should be no longer than 80 characters", 0 );			\
+		char *_msg; \
+		spprintf(&_msg, 0, "Locale string too long, should be no longer than %d characters", INTL_MAX_LOCALE_LEN);			\
+		intl_error_set( NULL, U_ILLEGAL_ARGUMENT_ERROR,	_msg, 1); 								\
+		efree(_msg); \
 		RETURN_NULL();																	\
 	}
 
 #define INTL_CHECK_LOCALE_LEN_OR_FAILURE(locale_len)									\
 	if((locale_len) > INTL_MAX_LOCALE_LEN) {											\
-		intl_error_set( NULL, U_ILLEGAL_ARGUMENT_ERROR,									\
-		"Locale string too long, should be no longer than 80 characters", 0 );			\
+		char *_msg; \
+		spprintf(&_msg, 0, "Locale string too long, should be no longer than %d characters", INTL_MAX_LOCALE_LEN);			\
+		intl_error_set( NULL, U_ILLEGAL_ARGUMENT_ERROR,	_msg, 1); 								\
+		efree(_msg); \
 		return FAILURE;																	\
 	}
 

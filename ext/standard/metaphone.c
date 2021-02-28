@@ -1,8 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,37 +14,34 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 /*
 	Based on CPANs "Text-Metaphone-1.96" by Michael G Schwern <schwern@pobox.com>
 */
 
 #include "php.h"
-#include "php_metaphone.h"
 
-static int metaphone(unsigned char *word, size_t word_len, zend_long max_phonemes, zend_string **phoned_word, int traditional);
+static void metaphone(unsigned char *word, size_t word_len, zend_long max_phonemes, zend_string **phoned_word, int traditional);
 
-/* {{{ proto string metaphone(string text[, int phones])
-   Break english phrases down into their phonemes */
+/* {{{ Break english phrases down into their phonemes */
 PHP_FUNCTION(metaphone)
 {
 	zend_string *str;
 	zend_string *result = NULL;
 	zend_long phones = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "S|l", &str, &phones) == FAILURE) {
-		return;
+	ZEND_PARSE_PARAMETERS_START(1, 2)
+		Z_PARAM_STR(str)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_LONG(phones)
+	ZEND_PARSE_PARAMETERS_END();
+
+	if (phones < 0) {
+		zend_argument_value_error(2, "must be greater than or equal to 0");
+		RETURN_THROWS();
 	}
 
-	if (metaphone((unsigned char *)ZSTR_VAL(str), ZSTR_LEN(str), phones, &result, 1) == 0) {
-		RETVAL_STR(result);
-	} else {
-		if (result) {
-			zend_string_free(result);
-		}
-		RETURN_FALSE;
-	}
+	metaphone((unsigned char *)ZSTR_VAL(str), ZSTR_LEN(str), phones, &result, 1);
+	RETVAL_STR(result);
 }
 /* }}} */
 
@@ -76,7 +71,7 @@ PHP_FUNCTION(metaphone)
 /* Metachar.h ... little bits about characters for metaphone */
 /*-- Character encoding array & accessing macros --*/
 /* Stolen directly out of the book... */
-char _codes[26] =
+static const char _codes[26] =
 {
 	1, 16, 4, 16, 9, 2, 4, 16, 9, 2, 0, 2, 2, 2, 1, 4, 0, 2, 4, 4, 1, 0, 0, 0, 8, 0
 /*  a  b c  d e f g  h i j k l m n o p q r s t u v w x y z */
@@ -149,7 +144,7 @@ static char Lookahead(char *word, int how_far)
 						ZSTR_LEN(*phoned_word) = p_idx; \
 					}
 /* Slap a null character on the end of the phoned word */
-#define End_Phoned_Word	{ \
+#define End_Phoned_Word()	{ \
 							if (p_idx == max_buffer_len) { \
 								*phoned_word = zend_string_extend(*phoned_word, 1 * sizeof(char) + max_buffer_len, 0); \
 								max_buffer_len += 1; \
@@ -163,26 +158,14 @@ static char Lookahead(char *word, int how_far)
 /* Note is a letter is a 'break' in the word */
 #define Isbreak(c)  (!isalpha(c))
 
-/* {{{ metaphone
- */
-static int metaphone(unsigned char *word, size_t word_len, zend_long max_phonemes, zend_string **phoned_word, int traditional)
+/* {{{ metaphone */
+static void metaphone(unsigned char *word, size_t word_len, zend_long max_phonemes, zend_string **phoned_word, int traditional)
 {
 	int w_idx = 0;				/* point in the phonization we're at. */
-	int p_idx = 0;				/* end of the phoned phrase */
+	size_t p_idx = 0;				/* end of the phoned phrase */
 	size_t max_buffer_len = 0;		/* maximum length of the destination buffer */
-
-/*-- Parameter checks --*/
-	/* Negative phoneme length is meaningless */
-
-	if (max_phonemes < 0)
-		return -1;
-
-	/* Empty/null string is meaningless */
-	/* Overly paranoid */
-	/* assert(word != NULL && word[0] != '\0'); */
-
-	if (word == NULL)
-		return -1;
+	ZEND_ASSERT(word != NULL);
+	ZEND_ASSERT(max_phonemes >= 0);
 
 /*-- Allocate memory for our phoned_phrase --*/
 	if (max_phonemes == 0) {	/* Assume largest possible */
@@ -199,8 +182,8 @@ static int metaphone(unsigned char *word, size_t word_len, zend_long max_phoneme
 	for (; !isalpha(Curr_Letter); w_idx++) {
 		/* On the off chance we were given nothing but crap... */
 		if (Curr_Letter == '\0') {
-			End_Phoned_Word
-				return SUCCESS;	/* For testing */
+			End_Phoned_Word();
+			return;
 		}
 	}
 
@@ -265,7 +248,7 @@ static int metaphone(unsigned char *word, size_t word_len, zend_long max_phoneme
 
 	/* On to the metaphoning */
 	for (; Curr_Letter != '\0' &&
-		 (max_phonemes == 0 || Phone_Len < max_phonemes);
+		 (max_phonemes == 0 || Phone_Len < (size_t)max_phonemes);
 		 w_idx++) {
 		/* How many letters to skip because an eariler encoding handled
 		 * multiple letters */
@@ -465,17 +448,6 @@ static int metaphone(unsigned char *word, size_t word_len, zend_long max_phoneme
 		w_idx += skip_letter;
 	}							/* END FOR */
 
-	End_Phoned_Word;
-
-	return 0;
+	End_Phoned_Word();
 }								/* END metaphone */
 /* }}} */
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: sw=4 ts=4 fdm=marker
- * vim<600: sw=4 ts=4
- */

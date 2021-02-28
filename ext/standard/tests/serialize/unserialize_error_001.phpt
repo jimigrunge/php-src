@@ -8,45 +8,27 @@ class foo {
 $z = array(new foo(), 2, "3");
 $s = serialize($z);
 
-var_dump(unserialize($s, ["allowed_classes" => null]));
-var_dump(unserialize($s, ["allowed_classes" => 0]));
-var_dump(unserialize($s, ["allowed_classes" => 1]));
+try {
+    unserialize($s, ["allowed_classes" => null]);
+} catch (TypeError $exception) {
+    echo $exception->getMessage() . "\n";
+}
 
---EXPECTF--
-array(3) {
-  [0]=>
-  object(__PHP_Incomplete_Class)#%d (2) {
-    ["__PHP_Incomplete_Class_Name"]=>
-    string(3) "foo"
-    ["x"]=>
-    string(3) "bar"
-  }
-  [1]=>
-  int(2)
-  [2]=>
-  string(1) "3"
+try {
+    unserialize($s, ["allowed_classes" => 0]);
+} catch (TypeError $exception) {
+    echo $exception->getMessage() . "\n";
 }
-array(3) {
-  [0]=>
-  object(__PHP_Incomplete_Class)#%d (2) {
-    ["__PHP_Incomplete_Class_Name"]=>
-    string(3) "foo"
-    ["x"]=>
-    string(3) "bar"
-  }
-  [1]=>
-  int(2)
-  [2]=>
-  string(1) "3"
+
+
+try {
+    unserialize($s, ["allowed_classes" => 1]);
+} catch (TypeError $exception) {
+    echo $exception->getMessage() . "\n";
 }
-array(3) {
-  [0]=>
-  object(foo)#%d (1) {
-    ["x"]=>
-    string(3) "bar"
-  }
-  [1]=>
-  int(2)
-  [2]=>
-  string(1) "3"
-}
+
+?>
+--EXPECT--
+unserialize(): Option "allowed_classes" must be of type array|bool, null given
+unserialize(): Option "allowed_classes" must be of type array|bool, int given
+unserialize(): Option "allowed_classes" must be of type array|bool, int given

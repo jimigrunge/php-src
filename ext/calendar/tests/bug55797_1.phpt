@@ -12,6 +12,7 @@ if (PHP_INT_SIZE != 4) {
 $x = 882858030;
 
 var_dump(cal_from_jd($x, CAL_GREGORIAN));
+?>
 --EXPECTF--
 array(9) {
   ["date"]=>
@@ -33,4 +34,3 @@ array(9) {
   ["monthname"]=>
   string(0) ""
 }
-

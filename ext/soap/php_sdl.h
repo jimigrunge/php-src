@@ -1,8 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 7                                                        |
-  +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2016 The PHP Group                                |
+  | Copyright (c) The PHP Group                                          |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -14,10 +12,9 @@
   +----------------------------------------------------------------------+
   | Authors: Brad Lafountain <rodif_bl@yahoo.com>                        |
   |          Shane Caraveo <shane@caraveo.com>                           |
-  |          Dmitry Stogov <dmitry@zend.com>                             |
+  |          Dmitry Stogov <dmitry@php.net>                              |
   +----------------------------------------------------------------------+
 */
-/* $Id$ */
 
 #ifndef PHP_SDL_H
 #define PHP_SDL_H
@@ -61,7 +58,7 @@ struct _sdl {
 	HashTable *groups;           /* array of sdlTypesPtr */
 	char      *target_ns;
 	char      *source;
-	zend_bool  is_persistent;
+	bool  is_persistent;
 };
 
 typedef struct sdlCtx {
@@ -260,7 +257,7 @@ encodePtr get_encoder_from_prefix(sdlPtr sdl, xmlNodePtr data, const xmlChar *ty
 encodePtr get_encoder(sdlPtr sdl, const char *ns, const char *type);
 encodePtr get_encoder_ex(sdlPtr sdl, const char *nscat, int len);
 
-sdlBindingPtr get_binding_from_type(sdlPtr sdl, int type);
+sdlBindingPtr get_binding_from_type(sdlPtr sdl, sdlBindingType type);
 sdlBindingPtr get_binding_from_name(sdlPtr sdl, char *name, char *ns);
 
 void delete_sdl(void *handle);

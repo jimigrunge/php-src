@@ -1,5 +1,16 @@
 --TEST--
 Test simple recursive watchpoint
+--SKIPIF--
+<?php
+if (PHP_INT_SIZE == 4) {
+    die("xfail There may be flaws in the implementation of watchpoints that cause failures");
+}
+if (getenv('SKIP_ASAN')) {
+    die("skip intentionally causes segfaults");
+}
+?>
+--INI--
+opcache.optimization_level=0
 --PHPDBG--
 b 3
 r
@@ -16,7 +27,7 @@ prompt> [Breakpoint #0 at %s:3, hits: 1]
 >00003: $a = 1;
  00004: $b = [$a];
  00005: 
-prompt> [Set recursive watchpoint on $b]
+prompt> [Added recursive watchpoint #0 for $b]
 prompt> [Breaking on watchpoint $b]
 Old value: 
 New value: Array ([0] => 1)
@@ -31,9 +42,8 @@ New value:
 prompt> [Breaking on watchpoint $b]
 Old value: 
 New value: 2
->00007: $b = 2;
- 00008: 
-prompt> [$b was removed, removing watchpoint recursively]
+>00008: 
+prompt> [$b has been removed, removing watchpoint recursively]
 [Script ended normally]
 prompt> 
 --FILE--

@@ -1,8 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 7                                                        |
-  +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2016 The PHP Group                                |
+  | Copyright (c) The PHP Group                                          |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -110,8 +108,8 @@
 
 
 
-PHPAPI void mysqlnd_stats_init(MYSQLND_STATS ** stats, const size_t statistic_count, const zend_bool persistent);
-PHPAPI void mysqlnd_stats_end(MYSQLND_STATS * stats, const zend_bool persistent);
+PHPAPI void mysqlnd_stats_init(MYSQLND_STATS ** stats, const size_t statistic_count, const bool persistent);
+PHPAPI void mysqlnd_stats_end(MYSQLND_STATS * stats, const bool persistent);
 
 PHPAPI void mysqlnd_fill_stats_hash(const MYSQLND_STATS * const stats, const MYSQLND_STRING * names, zval *return_value ZEND_FILE_LINE_DC);
 
@@ -119,12 +117,3 @@ PHPAPI mysqlnd_stat_trigger mysqlnd_stats_set_trigger(MYSQLND_STATS * const stat
 PHPAPI mysqlnd_stat_trigger mysqlnd_stats_reset_triggers(MYSQLND_STATS * const stats);
 
 #endif	/* MYSQLND_STATISTICS_H */
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: noet sw=4 ts=4 fdm=marker
- * vim<600: noet sw=4 ts=4
- */

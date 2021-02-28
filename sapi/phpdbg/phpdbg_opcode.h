@@ -1,8 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -24,8 +22,8 @@
 #include "zend_types.h"
 
 char *phpdbg_decode_opline(zend_op_array *ops, zend_op *op);
-void phpdbg_print_opline(zend_execute_data *execute_data, zend_bool ignore_flags);
-void phpdbg_print_opline_ex(zend_execute_data *execute_data, zend_bool ignore_flags);
+void phpdbg_print_opline(zend_execute_data *execute_data, bool ignore_flags);
+void phpdbg_print_opline_ex(zend_execute_data *execute_data, bool ignore_flags);
 
 typedef struct _phpdbg_oplog_entry phpdbg_oplog_entry;
 struct _phpdbg_oplog_entry {
@@ -40,7 +38,7 @@ struct _phpdbg_oplog_entry {
 typedef struct _phpdbg_oplog_list phpdbg_oplog_list;
 struct _phpdbg_oplog_list {
 	phpdbg_oplog_list *prev;
-	phpdbg_oplog_entry *start;
+	phpdbg_oplog_entry start; /* Only "next" member used. */
 };
 
 #endif /* PHPDBG_OPCODE_H */

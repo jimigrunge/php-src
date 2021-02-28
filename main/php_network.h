@@ -1,8 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,8 +14,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #ifndef _PHP_NETWORK_H
 #define _PHP_NETWORK_H
 
@@ -28,6 +24,7 @@
 #else
 # undef closesocket
 # define closesocket close
+# include <netinet/tcp.h>
 #endif
 
 #ifndef HAVE_SHUTDOWN
@@ -52,6 +49,13 @@
 # define EWOULDBLOCK EAGAIN
 #endif
 
+/* This is a work around for GCC bug 69602: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69602 */
+#if EAGAIN != EWOULDBLOCK
+# define PHP_IS_TRANSIENT_ERROR(err) (err == EAGAIN || err == EWOULDBLOCK)
+#else
+# define PHP_IS_TRANSIENT_ERROR(err) (err == EAGAIN)
+#endif
+
 #ifdef PHP_WIN32
 #define php_socket_errno() WSAGetLastError()
 #else
@@ -74,6 +78,10 @@ END_EXTERN_C()
 #include <sys/socket.h>
 #endif
 
+#ifdef HAVE_GETHOSTBYNAME_R
+#include <netdb.h>
+#endif
+
 /* These are here, rather than with the win32 counterparts above,
  * since <sys/socket.h> defines them. */
 #ifndef SHUT_RD
@@ -86,9 +94,7 @@ END_EXTERN_C()
 #include <sys/time.h>
 #endif
 
-#ifdef HAVE_STDDEF_H
 #include <stddef.h>
-#endif
 
 #ifdef PHP_WIN32
 typedef SOCKET php_socket_t;
@@ -111,13 +117,18 @@ typedef int php_socket_t;
 #define STREAM_SOCKOP_SO_BROADCAST        (1 << 2)
 #define STREAM_SOCKOP_IPV6_V6ONLY         (1 << 3)
 #define STREAM_SOCKOP_IPV6_V6ONLY_ENABLED (1 << 4)
+#define STREAM_SOCKOP_TCP_NODELAY         (1 << 5)
 
 
 /* uncomment this to debug poll(2) emulation on systems that have poll(2) */
 /* #define PHP_USE_POLL_2_EMULATION 1 */
 
-#if defined(HAVE_SYS_POLL_H) && defined(HAVE_POLL)
-# include <sys/poll.h>
+#if defined(HAVE_POLL)
+# if defined(HAVE_POLL_H)
+#  include <poll.h>
+# elif defined(HAVE_SYS_POLL_H)
+#  include <sys/poll.h>
+# endif
 typedef struct pollfd php_pollfd;
 #else
 typedef struct _php_pollfd {
@@ -237,7 +248,7 @@ PHPAPI void php_network_freeaddresses(struct sockaddr **sal);
 
 PHPAPI php_socket_t php_network_connect_socket_to_host(const char *host, unsigned short port,
 		int socktype, int asynchronous, struct timeval *timeout, zend_string **error_string,
-		int *error_code, char *bindto, unsigned short bindport, long sockopts
+		int *error_code, const char *bindto, unsigned short bindport, long sockopts
 		);
 
 PHPAPI int php_network_connect_socket(php_socket_t sockfd,
@@ -261,7 +272,8 @@ PHPAPI php_socket_t php_network_accept_incoming(php_socket_t srvsock,
 		socklen_t *addrlen,
 		struct timeval *timeout,
 		zend_string **error_string,
-		int *error_code
+		int *error_code,
+		int tcp_nodelay
 		);
 
 PHPAPI int php_network_get_sock_name(php_socket_t sock,
@@ -288,8 +300,8 @@ struct _php_netstream_data_t	{
 	size_t ownsize;
 };
 typedef struct _php_netstream_data_t php_netstream_data_t;
-PHPAPI extern php_stream_ops php_stream_socket_ops;
-extern php_stream_ops php_stream_generic_socket_ops;
+PHPAPI extern const php_stream_ops php_stream_socket_ops;
+extern const php_stream_ops php_stream_generic_socket_ops;
 #define PHP_STREAM_IS_SOCKET	(&php_stream_socket_ops)
 
 BEGIN_EXTERN_C()
@@ -309,6 +321,10 @@ PHPAPI void php_network_populate_name_from_sockaddr(
 
 PHPAPI int php_network_parse_network_address_with_port(const char *addr,
 		zend_long addrlen, struct sockaddr *sa, socklen_t *sl);
+
+PHPAPI struct hostent*	php_network_gethostbyname(const char *name);
+
+PHPAPI int php_set_sock_blocking(php_socket_t socketd, int block);
 END_EXTERN_C()
 
 #define php_stream_sock_open_from_socket(socket, persistent)	_php_stream_sock_open_from_socket((socket), (persistent) STREAMS_CC)
@@ -326,10 +342,3 @@ END_EXTERN_C()
 #endif
 
 #endif /* _PHP_NETWORK_H */
-
-/*
- * Local variables:
- * tab-width: 8
- * c-basic-offset: 8
- * End:
- */

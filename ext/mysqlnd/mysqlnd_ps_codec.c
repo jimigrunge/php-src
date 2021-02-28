@@ -1,8 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 7                                                        |
-  +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2016 The PHP Group                                |
+  | Copyright (c) The PHP Group                                          |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,6 +15,7 @@
   +----------------------------------------------------------------------+
 */
 
+#include <math.h>
 #include "php.h"
 #include "mysqlnd.h"
 #include "mysqlnd_wireprotocol.h"
@@ -41,7 +40,7 @@ struct st_mysqlnd_time
 {
   unsigned int  year, month, day, hour, minute, second;
   zend_ulong second_part;
-  zend_bool     neg;
+  bool     neg;
   enum mysqlnd_timestamp_type time_type;
 };
 
@@ -58,7 +57,7 @@ ps_fetch_from_1_to_8_bytes(zval * zv, const MYSQLND_FIELD * const field, const u
 {
 	char tmp[22];
 	size_t tmp_len = 0;
-	zend_bool is_bit = field->type == MYSQL_TYPE_BIT;
+	bool is_bit = field->type == MYSQL_TYPE_BIT;
 	DBG_ENTER("ps_fetch_from_1_to_8_bytes");
 	DBG_INF_FMT("zv=%p byte_count=%u", zv, byte_count);
 	if (field->flags & UNSIGNED_FLAG) {
@@ -78,7 +77,7 @@ ps_fetch_from_1_to_8_bytes(zval * zv, const MYSQLND_FIELD * const field, const u
 #if SIZEOF_ZEND_LONG==4
 		if (uval > INT_MAX) {
 			DBG_INF("stringify");
-			tmp_len = sprintf((char *)&tmp, MYSQLND_LLU_SPEC, uval);
+			tmp_len = sprintf((char *)&tmp, "%" PRIu64, uval);
 		} else
 #endif /* #if SIZEOF_LONG==4 */
 		{
@@ -86,7 +85,8 @@ ps_fetch_from_1_to_8_bytes(zval * zv, const MYSQLND_FIELD * const field, const u
 				ZVAL_LONG(zv, (zend_long) uval); /* the cast is safe, we are in the range */
 			} else {
 				DBG_INF("stringify");
-				tmp_len = sprintf((char *)&tmp, MYSQLND_LLU_SPEC, uval);
+				tmp_len = sprintf((char *)&tmp, "%" PRIu64, uval);
+				DBG_INF_FMT("value=%s", tmp);
 			}
 		}
 	} else {
@@ -96,7 +96,7 @@ ps_fetch_from_1_to_8_bytes(zval * zv, const MYSQLND_FIELD * const field, const u
 			case 8:lval = (int64_t) sint8korr(*row);break;
 			/*
 			  7, 6 and 5 are not possible.
-			  BIT is only unsigned, thus only uint5|6|7 macroses exist
+			  BIT is only unsigned, thus only uint5|6|7 macros exist
 			*/
 			case 4:lval = (int64_t) sint4korr(*row);break;
 			case 3:lval = (int64_t) sint3korr(*row);break;
@@ -107,7 +107,7 @@ ps_fetch_from_1_to_8_bytes(zval * zv, const MYSQLND_FIELD * const field, const u
 #if SIZEOF_ZEND_LONG==4
 		if ((L64(2147483647) < (int64_t) lval) || (L64(-2147483648) > (int64_t) lval)) {
 			DBG_INF("stringify");
-			tmp_len = sprintf((char *)&tmp, MYSQLND_LL_SPEC, lval);
+			tmp_len = sprintf((char *)&tmp, "%" PRIi64, lval);
 		} else
 #endif /* SIZEOF */
 		{
@@ -184,7 +184,7 @@ ps_fetch_float(zval * zv, const MYSQLND_FIELD * const field, const unsigned int 
 # define NOT_FIXED_DEC 31
 #endif
 
-	dval = mysql_float_to_double(fval, (field->decimals >= NOT_FIXED_DEC) ? -1 : field->decimals);
+	dval = mysql_float_to_double(fval, (field->decimals >= NOT_FIXED_DEC) ? -1 : (int)field->decimals);
 
 	ZVAL_DOUBLE(zv, dval);
 	DBG_VOID_RETURN;
@@ -212,15 +212,14 @@ static void
 ps_fetch_time(zval * zv, const MYSQLND_FIELD * const field, const unsigned int pack_len, const zend_uchar ** row)
 {
 	struct st_mysqlnd_time t;
-	zend_ulong length; /* First byte encodes the length*/
-	char * value;
+	zend_ulong length; /* First byte encodes the length */
 	DBG_ENTER("ps_fetch_time");
 
 	if ((length = php_mysqlnd_net_field_length(row))) {
 		const zend_uchar * to = *row;
 
 		t.time_type = MYSQLND_TIMESTAMP_TIME;
-		t.neg			= (zend_bool) to[0];
+		t.neg			= (bool) to[0];
 
 		t.day			= (zend_ulong) sint4korr(to+1);
 		t.hour			= (unsigned int) to[5];
@@ -240,11 +239,14 @@ ps_fetch_time(zval * zv, const MYSQLND_FIELD * const field, const unsigned int p
 		t.time_type = MYSQLND_TIMESTAMP_TIME;
 	}
 
-	length = mnd_sprintf(&value, 0, "%s%02u:%02u:%02u", (t.neg ? "-" : ""), t.hour, t.minute, t.second);
-
-	DBG_INF_FMT("%s", value);
-	ZVAL_STRINGL(zv, value, length);
-	mnd_sprintf_free(value);
+    if (field->decimals > 0 && field->decimals < 7) {
+        ZVAL_STR(zv, zend_strpprintf(0, "%s%02u:%02u:%02u.%0*u",
+			(t.neg ? "-" : ""), t.hour, t.minute, t.second, field->decimals,
+			(uint32_t) (t.second_part / pow(10, 6 - field->decimals))));
+    } else {
+         ZVAL_STR(zv, zend_strpprintf(0, "%s%02u:%02u:%02u",
+			(t.neg ? "-" : ""), t.hour, t.minute, t.second));
+    }
 	DBG_VOID_RETURN;
 }
 /* }}} */
@@ -256,7 +258,6 @@ ps_fetch_date(zval * zv, const MYSQLND_FIELD * const field, const unsigned int p
 {
 	struct st_mysqlnd_time t = {0};
 	zend_ulong length; /* First byte encodes the length*/
-	char * value;
 	DBG_ENTER("ps_fetch_date");
 
 	if ((length = php_mysqlnd_net_field_length(row))) {
@@ -277,11 +278,7 @@ ps_fetch_date(zval * zv, const MYSQLND_FIELD * const field, const unsigned int p
 		t.time_type = MYSQLND_TIMESTAMP_DATE;
 	}
 
-	length = mnd_sprintf(&value, 0, "%04u-%02u-%02u", t.year, t.month, t.day);
-
-	DBG_INF_FMT("%s", value);
-	ZVAL_STRINGL(zv, value, length);
-	mnd_sprintf_free(value);
+	ZVAL_STR(zv, zend_strpprintf(0, "%04u-%02u-%02u", t.year, t.month, t.day));
 	DBG_VOID_RETURN;
 }
 /* }}} */
@@ -293,7 +290,6 @@ ps_fetch_datetime(zval * zv, const MYSQLND_FIELD * const field, const unsigned i
 {
 	struct st_mysqlnd_time t;
 	zend_ulong length; /* First byte encodes the length*/
-	char * value;
 	DBG_ENTER("ps_fetch_datetime");
 
 	if ((length = php_mysqlnd_net_field_length(row))) {
@@ -321,11 +317,14 @@ ps_fetch_datetime(zval * zv, const MYSQLND_FIELD * const field, const unsigned i
 		t.time_type = MYSQLND_TIMESTAMP_DATETIME;
 	}
 
-	length = mnd_sprintf(&value, 0, "%04u-%02u-%02u %02u:%02u:%02u", t.year, t.month, t.day, t.hour, t.minute, t.second);
-
-	DBG_INF_FMT("%s", value);
-	ZVAL_STRINGL(zv, value, length);
-	mnd_sprintf_free(value);
+    if (field->decimals > 0 && field->decimals < 7) {
+		ZVAL_STR(zv, zend_strpprintf(0, "%04u-%02u-%02u %02u:%02u:%02u.%0*u",
+			t.year, t.month, t.day, t.hour, t.minute, t.second, field->decimals,
+			(uint32_t) (t.second_part / pow(10, 6 - field->decimals))));
+    } else {
+		ZVAL_STR(zv,  zend_strpprintf(0, "%04u-%02u-%02u %02u:%02u:%02u",
+			t.year, t.month, t.day, t.hour, t.minute, t.second));
+    }
 	DBG_VOID_RETURN;
 }
 /* }}} */
@@ -335,15 +334,11 @@ ps_fetch_datetime(zval * zv, const MYSQLND_FIELD * const field, const unsigned i
 static void
 ps_fetch_string(zval * zv, const MYSQLND_FIELD * const field, const unsigned int pack_len, const zend_uchar ** row)
 {
-	/*
-	  For now just copy, before we make it possible
-	  to write \0 to the row buffer
-	*/
 	const zend_ulong length = php_mysqlnd_net_field_length(row);
 	DBG_ENTER("ps_fetch_string");
 	DBG_INF_FMT("len = %lu", length);
 	DBG_INF("copying from the row buffer");
-	ZVAL_STRINGL(zv, (char *)*row, length);
+	ZVAL_STRINGL_FAST(zv, (char *)*row, length);
 
 	(*row) += length;
 	DBG_VOID_RETURN;
@@ -580,7 +575,7 @@ mysqlnd_stmt_execute_prepare_param_types(MYSQLND_STMT_DATA * stmt, zval ** copie
 		zval *parameter = &stmt->param_bind[i].zv;
 
 		ZVAL_DEREF(parameter);
-		if (!Z_ISNULL_P(parameter) && (current_type == MYSQL_TYPE_LONG || current_type == MYSQL_TYPE_LONGLONG)) {
+		if (!Z_ISNULL_P(parameter) && (current_type == MYSQL_TYPE_LONG || current_type == MYSQL_TYPE_LONGLONG || current_type == MYSQL_TYPE_TINY)) {
 			/* always copy the var, because we do many conversions */
 			if (Z_TYPE_P(parameter) != IS_LONG &&
 				PASS != mysqlnd_stmt_copy_it(copies_param, parameter, stmt->param_count, i))
@@ -599,23 +594,19 @@ mysqlnd_stmt_execute_prepare_param_types(MYSQLND_STMT_DATA * stmt, zval ** copie
 				  to losing precision we need second variable. Conversion to double is to see if
 				  value is too big for a long. As said, precision could be lost.
 				*/
-				zval tmp_data_copy;
-				ZVAL_COPY(&tmp_data_copy, tmp_data);
-				convert_to_double_ex(&tmp_data_copy);
+				double d = zval_get_double(tmp_data);
 
 				/*
 				  if it doesn't fit in a long send it as a string.
 				  Check bug #52891 : Wrong data inserted with mysqli/mysqlnd when using bind_param, value > LONG_MAX
 				  We do transformation here, which will be used later when sending types. The code later relies on this.
 				*/
-				if (Z_DVAL(tmp_data_copy) > ZEND_LONG_MAX || Z_DVAL(tmp_data_copy) < ZEND_LONG_MIN) {
+				if (d >= (double) ZEND_LONG_MAX || d < (double) ZEND_LONG_MIN) {
 					stmt->send_types_to_server = *resend_types_next_time = 1;
-					convert_to_string_ex(tmp_data);
+					convert_to_string(tmp_data);
 				} else {
-					convert_to_long_ex(tmp_data);
+					convert_to_long(tmp_data);
 				}
-
-				zval_ptr_dtor(&tmp_data_copy);
 			}
 		}
 	}
@@ -656,7 +647,7 @@ mysqlnd_stmt_execute_store_types(MYSQLND_STMT_DATA * stmt, zval * copies, zend_u
 					current_type = MYSQL_TYPE_VAR_STRING;
 					/*
 					  don't change stmt->param_bind[i].type to MYSQL_TYPE_VAR_STRING
-					  we force convert_to_long_ex in all cases, thus the type will be right in the next switch.
+					  we force convert_to_long in all cases, thus the type will be right in the next switch.
 					  if the type is however not long, then we will do a goto in the next switch.
 					  We want to preserve the original bind type given by the user. Thus, we do these hacks.
 					*/
@@ -723,7 +714,7 @@ mysqlnd_stmt_execute_calculate_param_values_size(MYSQLND_STMT_DATA * stmt, zval 
 					if (Z_TYPE_P(tmp_data) == IS_STRING) {
 						goto use_string;
 					}
-					convert_to_long_ex(tmp_data);
+					convert_to_long(tmp_data);
 				}
 				*data_size += 4 + is_longlong;
 				break;
@@ -749,7 +740,10 @@ use_string:
 					}
 					the_var = &((*copies_param)[i]);
 				}
-				convert_to_string_ex(the_var);
+
+				if (!try_convert_to_string(the_var)) {
+					goto end;
+				}
 				*data_size += Z_STRLEN_P(the_var);
 				break;
 		}
@@ -777,7 +771,7 @@ mysqlnd_stmt_execute_store_param_values(MYSQLND_STMT_DATA * stmt, zval * copies,
 		} else {
 			switch (stmt->param_bind[i].type) {
 				case MYSQL_TYPE_DOUBLE:
-					convert_to_double_ex(data);
+					convert_to_double(data);
 					float8store(*p, Z_DVAL_P(data));
 					(*p) += 8;
 					break;
@@ -796,6 +790,13 @@ mysqlnd_stmt_execute_store_param_values(MYSQLND_STMT_DATA * stmt, zval * copies,
 					/* data has alreade been converted to long */
 					int4store(*p, Z_LVAL_P(data));
 					(*p) += 4;
+					break;
+				case MYSQL_TYPE_TINY:
+					if (Z_TYPE_P(data) == IS_STRING) {
+						goto send_string;
+					}
+					int1store(*p, Z_LVAL_P(data));
+					(*p)++;
 					break;
 				case MYSQL_TYPE_LONG_BLOB:
 					if (stmt->param_bind[i].flags & MYSQLND_PARAM_BIND_BLOB_USED) {
@@ -904,13 +905,13 @@ end:
 
 /* {{{ mysqlnd_stmt_execute_generate_request */
 enum_func_status
-mysqlnd_stmt_execute_generate_request(MYSQLND_STMT * const s, zend_uchar ** request, size_t *request_len, zend_bool * free_buffer)
+mysqlnd_stmt_execute_generate_request(MYSQLND_STMT * const s, zend_uchar ** request, size_t *request_len, bool * free_buffer)
 {
 	MYSQLND_STMT_DATA * stmt = s->data;
 	zend_uchar	*p = stmt->execute_cmd_buffer.buffer,
 				*cmd_buffer = stmt->execute_cmd_buffer.buffer;
 	size_t cmd_buffer_length = stmt->execute_cmd_buffer.length;
-	enum_func_status ret;
+	enum_func_status ret = PASS;
 
 	DBG_ENTER("mysqlnd_stmt_execute_generate_request");
 
@@ -927,7 +928,9 @@ mysqlnd_stmt_execute_generate_request(MYSQLND_STMT * const s, zend_uchar ** requ
 	int1store(p, 1); /* and send 1 for iteration count */
 	p+= 4;
 
-	ret = mysqlnd_stmt_execute_store_params(s, &cmd_buffer, &p, &cmd_buffer_length);
+	if (stmt->param_count != 0) {
+	    ret = mysqlnd_stmt_execute_store_params(s, &cmd_buffer, &p, &cmd_buffer_length);
+	}
 
 	*free_buffer = (cmd_buffer != stmt->execute_cmd_buffer.buffer);
 	*request_len = (p - cmd_buffer);
@@ -936,12 +939,3 @@ mysqlnd_stmt_execute_generate_request(MYSQLND_STMT * const s, zend_uchar ** requ
 	DBG_RETURN(ret);
 }
 /* }}} */
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: noet sw=4 ts=4 fdm=marker
- * vim<600: noet sw=4 ts=4
- */

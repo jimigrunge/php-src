@@ -14,6 +14,7 @@ $I->unit = 42;
 echo $I->unit."\n";
 $I->d++;
 print_r($I);
+?>
 --EXPECT--
 1
 2
@@ -27,6 +28,7 @@ di Object
     [h] => 0
     [i] => 0
     [s] => 0
+    [f] => 0
     [weekday] => 0
     [weekday_behavior] => 0
     [first_last_day_of] => 0

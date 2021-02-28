@@ -1,8 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -41,7 +39,7 @@
 ZEND_EXTERN_MODULE_GLOBALS(phpdbg)
 
 /* {{{ color structures */
-const static phpdbg_color_t colors[] = {
+static const phpdbg_color_t colors[] = {
 	PHPDBG_COLOR_D("none",             "0;0"),
 
 	PHPDBG_COLOR_D("white",            "0;64"),
@@ -72,7 +70,7 @@ const static phpdbg_color_t colors[] = {
 }; /* }}} */
 
 /* {{{ */
-const static phpdbg_element_t elements[] = {
+static const phpdbg_element_t elements[] = {
 	PHPDBG_ELEMENT_D("prompt", PHPDBG_COLOR_PROMPT),
 	PHPDBG_ELEMENT_D("error", PHPDBG_COLOR_ERROR),
 	PHPDBG_ELEMENT_D("notice", PHPDBG_COLOR_NOTICE),
@@ -154,7 +152,7 @@ PHPDBG_API char *phpdbg_resolve_path(const char *path) /* {{{ */
 		return NULL;
 	}
 
-	return estrdup(resolved_name);
+	return strdup(resolved_name);
 } /* }}} */
 
 PHPDBG_API const char *phpdbg_current_file(void) /* {{{ */
@@ -357,8 +355,11 @@ PHPDBG_API int phpdbg_get_terminal_height(void) /* {{{ */
 #ifdef _WIN32
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
-	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-	lines = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+	if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+		lines = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+	} else {
+		lines = 40;
+	}
 #elif defined(HAVE_SYS_IOCTL_H) && defined(TIOCGWINSZ)
 	struct winsize w;
 
@@ -423,14 +424,14 @@ static int phpdbg_parse_variable_arg_wrapper(char *name, size_t len, char *keyna
 	return callback(name, len, keyname, keylen, parent, zv);
 }
 
-PHPDBG_API int phpdbg_parse_variable(char *input, size_t len, HashTable *parent, size_t i, phpdbg_parse_var_func callback, zend_bool silent) {
+PHPDBG_API int phpdbg_parse_variable(char *input, size_t len, HashTable *parent, size_t i, phpdbg_parse_var_func callback, bool silent) {
 	return phpdbg_parse_variable_with_arg(input, len, parent, i, (phpdbg_parse_var_with_arg_func) phpdbg_parse_variable_arg_wrapper, NULL, silent, callback);
 }
 
-PHPDBG_API int phpdbg_parse_variable_with_arg(char *input, size_t len, HashTable *parent, size_t i, phpdbg_parse_var_with_arg_func callback, phpdbg_parse_var_with_arg_func step_cb, zend_bool silent, void *arg) {
+PHPDBG_API int phpdbg_parse_variable_with_arg(char *input, size_t len, HashTable *parent, size_t i, phpdbg_parse_var_with_arg_func callback, phpdbg_parse_var_with_arg_func step_cb, bool silent, void *arg) {
 	int ret = FAILURE;
-	zend_bool new_index = 1;
-	char *last_index;
+	bool new_index = 1;
+	char *last_index = NULL;
 	size_t index_len = 0;
 	zval *zv;
 
@@ -470,11 +471,7 @@ PHPDBG_API int phpdbg_parse_variable_with_arg(char *input, size_t len, HashTable
 		if (new_index && index_len == 0) {
 			zend_ulong numkey;
 			zend_string *strkey;
-			ZEND_HASH_FOREACH_KEY_PTR(parent, numkey, strkey, zv) {
-				while (Z_TYPE_P(zv) == IS_INDIRECT) {
-					zv = Z_INDIRECT_P(zv);
-				}
-
+			ZEND_HASH_FOREACH_KEY_VAL_IND(parent, numkey, strkey, zv) {
 				if (i == len || (i == len - 1 && input[len - 1] == ']')) {
 					char *key, *propkey;
 					size_t namelen, keylen;
@@ -532,7 +529,7 @@ PHPDBG_API int phpdbg_parse_variable_with_arg(char *input, size_t len, HashTable
 			last_index[index_len] = 0;
 			if (!(zv = zend_symtable_str_find(parent, last_index, index_len))) {
 				if (!silent) {
-					phpdbg_error("variable", "type=\"undefined\" variable=\"%.*s\"", "%.*s is undefined", (int) i, input);
+					phpdbg_error("variable", "type=\"undefined\" variable=\"%.*s\"", "%.*s is undefined", (int) input[i] == ']' ? i + 1 : i, input);
 				}
 				return FAILURE;
 			}
@@ -658,9 +655,7 @@ PHPDBG_API void phpdbg_xml_var_dump(zval *zv) {
 	zend_ulong num;
 	zval *val;
 	int (*element_dump_func)(zval *zv, zend_string *key, zend_ulong num);
-	zend_bool is_ref = 0;
-
-	int is_temp;
+	bool is_ref = 0;
 
 	phpdbg_try_access {
 		is_ref = Z_ISREF_P(zv) && GC_REFCOUNT(Z_COUNTED_P(zv)) > 1;
@@ -687,20 +682,20 @@ PHPDBG_API void phpdbg_xml_var_dump(zval *zv) {
 				break;
 			case IS_ARRAY:
 				myht = Z_ARRVAL_P(zv);
-				if (ZEND_HASH_APPLY_PROTECTION(myht) && ++myht->u.v.nApplyCount > 1) {
-					phpdbg_xml("<recursion />");
-					--myht->u.v.nApplyCount;
-					break;
+				if (!(GC_FLAGS(myht) & GC_IMMUTABLE)) {
+					if (GC_IS_RECURSIVE(myht)) {
+						phpdbg_xml("<recursion />");
+						break;
+					}
+					GC_PROTECT_RECURSION(myht);
 				}
 				phpdbg_xml("<array refstatus=\"%s\" num=\"%d\">", COMMON, zend_hash_num_elements(myht));
 				element_dump_func = phpdbg_xml_array_element_dump;
-				is_temp = 0;
 				goto head_done;
 			case IS_OBJECT:
-				myht = Z_OBJDEBUG_P(zv, is_temp);
-				if (myht && ++myht->u.v.nApplyCount > 1) {
+				myht = zend_get_properties_for(zv, ZEND_PROP_PURPOSE_DEBUG);
+				if (myht && GC_IS_RECURSIVE(myht)) {
 					phpdbg_xml("<recursion />");
-					--myht->u.v.nApplyCount;
 					break;
 				}
 
@@ -714,11 +709,9 @@ head_done:
 					ZEND_HASH_FOREACH_KEY_VAL_IND(myht, num, key, val) {
 						element_dump_func(val, key, num);
 					} ZEND_HASH_FOREACH_END();
-					zend_hash_apply_with_arguments(myht, (apply_func_args_t) element_dump_func, 0);
-					--myht->u.v.nApplyCount;
-					if (is_temp) {
-						zend_hash_destroy(myht);
-						efree(myht);
+					GC_UNPROTECT_RECURSION(myht);
+					if (Z_TYPE_P(zv) == IS_OBJECT) {
+						zend_release_properties(myht);
 					}
 				}
 				if (Z_TYPE_P(zv) == IS_ARRAY) {
@@ -738,7 +731,7 @@ head_done:
 	} phpdbg_end_try_access();
 }
 
-PHPDBG_API zend_bool phpdbg_check_caught_ex(zend_execute_data *execute_data, zend_object *exception) {
+PHPDBG_API bool phpdbg_check_caught_ex(zend_execute_data *execute_data, zend_object *exception) {
 	const zend_op *op;
 	zend_op *cur;
 	uint32_t op_num, i;
@@ -759,21 +752,25 @@ PHPDBG_API zend_bool phpdbg_check_caught_ex(zend_execute_data *execute_data, zen
 				return 1;
 			}
 
-			do {
+			cur = &op_array->opcodes[catch];
+			while (1) {
 				zend_class_entry *ce;
-				cur = &op_array->opcodes[catch];
 
-				if (!(ce = CACHED_PTR(Z_CACHE_SLOT_P(EX_CONSTANT(cur->op1))))) {
-					ce = zend_fetch_class_by_name(Z_STR_P(EX_CONSTANT(cur->op1)), EX_CONSTANT(cur->op1) + 1, ZEND_FETCH_CLASS_NO_AUTOLOAD);
-					CACHE_PTR(Z_CACHE_SLOT_P(EX_CONSTANT(cur->op1)), ce);
+				if (!(ce = CACHED_PTR(cur->extended_value & ~ZEND_LAST_CATCH))) {
+					ce = zend_fetch_class_by_name(Z_STR_P(RT_CONSTANT(cur, cur->op1)), Z_STR_P(RT_CONSTANT(cur, cur->op1) + 1), ZEND_FETCH_CLASS_NO_AUTOLOAD);
+					CACHE_PTR(cur->extended_value & ~ZEND_LAST_CATCH, ce);
 				}
 
 				if (ce == exception->ce || (ce && instanceof_function(exception->ce, ce))) {
 					return 1;
 				}
 
-				catch = cur->extended_value;
-			} while (!cur->result.num);
+				if (cur->extended_value & ZEND_LAST_CATCH) {
+					return 0;
+				}
+
+				cur = OP_JMP_ADDR(cur, cur->op2);
+			}
 
 			return 0;
 		}
@@ -804,10 +801,22 @@ char *phpdbg_short_zval_print(zval *zv, int maxlen) /* {{{ */
 			break;
 		case IS_DOUBLE:
 			spprintf(&decode, 0, "%.*G", 14, Z_DVAL_P(zv));
+
+			/* Make sure it looks like a float */
+			if (zend_finite(Z_DVAL_P(zv)) && !strchr(decode, '.')) {
+				size_t len = strlen(decode);
+				char *decode2 = emalloc(len + strlen(".0") + 1);
+				memcpy(decode2, decode, len);
+				decode2[len] = '.';
+				decode2[len+1] = '0';
+				decode2[len+2] = '\0';
+				efree(decode);
+				decode = decode2;
+			}
 			break;
 		case IS_STRING: {
 			int i;
-			zend_string *str = php_addcslashes(Z_STR_P(zv), 0, "\\\"", 2);
+			zend_string *str = php_addcslashes(Z_STR_P(zv), "\\\"\n\t\0", 5);
 			for (i = 0; i < ZSTR_LEN(str); i++) {
 				if (ZSTR_VAL(str)[i] < 32) {
 					ZSTR_VAL(str)[i] = ' ';
@@ -831,12 +840,17 @@ char *phpdbg_short_zval_print(zval *zv, int maxlen) /* {{{ */
 				ZSTR_VAL(str), ZSTR_LEN(str) <= maxlen ? 0 : '+');
 			break;
 		}
-		case IS_CONSTANT:
-			decode = estrdup("<constant>");
+		case IS_CONSTANT_AST: {
+			zend_ast *ast = Z_ASTVAL_P(zv);
+
+			if (ast->kind == ZEND_AST_CONSTANT
+			 || ast->kind == ZEND_AST_CONSTANT_CLASS) {
+				decode = estrdup("<constant>");
+			} else {
+				decode = estrdup("<ast>");
+			}
 			break;
-		case IS_CONSTANT_AST:
-			decode = estrdup("<ast>");
-			break;
+		}
 		default:
 			spprintf(&decode, 0, "unknown type: %d", Z_TYPE_P(zv));
 			break;

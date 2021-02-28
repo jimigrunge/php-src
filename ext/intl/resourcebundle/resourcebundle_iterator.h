@@ -1,7 +1,5 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
@@ -24,7 +22,7 @@
 typedef struct {
 	zend_object_iterator  intern;
 	ResourceBundle_object *subject;
-	zend_bool             is_table;
+	bool             is_table;
 	zend_long             length;
 	zval                  current;
 	char                  *currentkey;

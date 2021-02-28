@@ -11,38 +11,35 @@ if(!function_exists('gd_info')) {
 ?>
 --FILE--
 <?php
-/* Prototype  : array gd_info()
- * Description: Retrieve information about the currently installed GD library
- * Source code: ext/gd/gd.c
- */
-
 echo "*** Testing gd_info() : variation ***\n";
 
 var_dump(gd_info());
 ?>
-===DONE===
 --EXPECTF--
 *** Testing gd_info() : variation ***
 array(%d) {
   ["GD Version"]=>
-  string(%d) %a
+  string(%d) %s
   ["FreeType Support"]=>
-  bool%a
+  bool(%a
   ["GIF Read Support"]=>
-  bool%a
+  bool(%s)
   ["GIF Create Support"]=>
-  bool%a
+  bool(%s)
   ["JPEG Support"]=>
-  bool%a
+  bool(%s)
   ["PNG Support"]=>
-  bool%a
+  bool(%s)
   ["WBMP Support"]=>
-  bool%a
+  bool(%s)
   ["XPM Support"]=>
-  bool%a
+  bool(%s)
   ["XBM Support"]=>
+  bool(%s)
+  ["WebP Support"]=>
+  bool(%s)
+  ["BMP Support"]=>
   bool%a
   ["JIS-mapped Japanese Font Support"]=>
-  bool%a
+  bool(%s)
 }
-===DONE===

@@ -3,7 +3,7 @@ Test if socket binds on 31338
 --SKIPIF--
 <?php
 if (substr(PHP_OS, 0, 3) == 'WIN') {
-	die('skip.. Not valid for Windows');
+    die('skip.. Not valid for Windows');
 }
 if (!extension_loaded('sockets')) {
     die('SKIP The sockets extension is not loaded.');
@@ -11,8 +11,9 @@ if (!extension_loaded('sockets')) {
 --FILE--
 <?php
 $sock = socket_create_listen(31338);
-socket_getsockname($sock, $addr, $port); 
+socket_getsockname($sock, $addr, $port);
 var_dump($addr, $port);
+?>
 --EXPECT--
 string(7) "0.0.0.0"
 int(31338)

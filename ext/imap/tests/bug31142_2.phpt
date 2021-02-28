@@ -1,10 +1,8 @@
---TEST--                                 
+--TEST--
 Bug #31142 test #2 (imap_mail_compose() generates incorrect output)
 --SKIPIF--
 <?php
-        if (!extension_loaded("imap")) { 
-                die("skip imap extension not available");  
-        }
+extension_loaded('imap') or die('skip imap extension not available in this build');
 ?>
 --FILE--
 <?php

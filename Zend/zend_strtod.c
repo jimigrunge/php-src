@@ -546,6 +546,7 @@ Bigint {
  static Bigint *freelist[Kmax+1];
 
 static void destroy_freelist(void);
+static void free_p5s(void);
 
 #ifdef ZTS
 static MUTEX_T dtoa_mutex;
@@ -564,6 +565,8 @@ ZEND_API int zend_startup_strtod(void) /* {{{ */
 ZEND_API int zend_shutdown_strtod(void) /* {{{ */
 {
 	destroy_freelist();
+	free_p5s();
+
 #ifdef ZTS
 	tsrm_mutex_free(dtoa_mutex);
 	dtoa_mutex = NULL;
@@ -1560,7 +1563,7 @@ hexdig_init(void)	/* Use of hexdig_init omitted 20121220 to avoid a */
 	htinit(hexdig, USC "ABCDEF", 0x10 + 10);
 	}
 #else
-static unsigned char hexdig[256] = {
+static const unsigned char hexdig[256] = {
 	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -2677,6 +2680,14 @@ zend_strtod
 			}
 		}
  dig_done:
+ 	if (nd < 0) {
+ 		/* overflow */
+ 		nd = DBL_DIG + 2;
+ 	}
+ 	if (nf < 0) {
+ 		/* overflow */
+ 		nf = DBL_DIG + 2;
+ 	}
 	e = 0;
 	if (c == 'e' || c == 'E') {
 		if (!nd && !nz && !nz0) {
@@ -2697,7 +2708,7 @@ zend_strtod
 				L = c - '0';
 				s1 = s;
 				while((c = *++s) >= '0' && c <= '9')
-					L = 10*L + c - '0';
+					L = (Long) (10*(ULong)L + (c - '0'));
 				if (s - s1 > 8 || L > 19999)
 					/* Avoid confusion from exponents
 					 * so large that e might overflow.
@@ -3615,7 +3626,7 @@ rv_alloc(int i)
 
 	j = sizeof(ULong);
 	for(k = 0;
-		sizeof(Bigint) - sizeof(ULong) - sizeof(int) + j <= i;
+		sizeof(Bigint) - sizeof(ULong) - sizeof(int) + (size_t)j <= (size_t)i;
 		j <<= 1)
 			k++;
 	r = (int*)Balloc(k);
@@ -3743,7 +3754,7 @@ zend_dtoa
 	*/
 
 	int bbits, b2, b5, be, dig, i, ieps, ilim = 0, ilim0, ilim1,
-		j, j1, k, k0, k_check, leftright, m2, m5, s2, s5,
+		j, j1 = 0, k, k0, k_check, leftright, m2, m5, s2, s5,
 		spec_case = 0, try_quick;
 	Long L;
 #ifndef Sudden_Underflow
@@ -4416,13 +4427,6 @@ ZEND_API double zend_hex_strtod(const char *str, const char **endptr)
 	int any = 0;
 	double value = 0;
 
-	if (strlen(str) < 2) {
-		if (endptr != NULL) {
-			*endptr = str;
-		}
-		return 0.0;
-	}
-
 	if (*s == '0' && (s[1] == 'x' || s[1] == 'X')) {
 		s += 2;
 	}
@@ -4456,15 +4460,12 @@ ZEND_API double zend_oct_strtod(const char *str, const char **endptr)
 	double value = 0;
 	int any = 0;
 
-	if (strlen(str) < 1) {
+	if (str[0] == '\0') {
 		if (endptr != NULL) {
 			*endptr = str;
 		}
 		return 0.0;
 	}
-
-	/* skip leading zero */
-	s++;
 
 	while ((c = *s++)) {
 		if (c < '0' || c > '7') {
@@ -4490,13 +4491,6 @@ ZEND_API double zend_bin_strtod(const char *str, const char **endptr)
 	char 		c;
 	double 		value = 0;
 	int 		any = 0;
-
-	if (strlen(str) < 2) {
-		if (endptr != NULL) {
-			*endptr = str;
-		}
-		return 0.0;
-	}
 
 	if ('0' == *s && ('b' == s[1] || 'B' == s[1])) {
 		s += 2;
@@ -4543,17 +4537,22 @@ static void destroy_freelist(void)
 		}
 		freelist[i] = NULL;
 	}
-	FREE_DTOA_LOCK(0) 
+	FREE_DTOA_LOCK(0)
+}
+
+static void free_p5s(void)
+{
+	Bigint **listp, *tmp;
+
+	ACQUIRE_DTOA_LOCK(1)
+	listp = &p5s;
+	while ((tmp = *listp) != NULL) {
+		*listp = tmp->next;
+		free(tmp);
+	}
+	FREE_DTOA_LOCK(1)
 }
 
 #ifdef __cplusplus
 }
 #endif
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: sw=4 ts=4 fdm=marker
- * vim<600: sw=4 ts=4
- */

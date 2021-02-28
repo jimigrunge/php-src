@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend OPcache                                                         |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2016 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   | Authors: Andi Gutmans <andi@php.net>                                 |
+   |          Zeev Suraski <zeev@php.net>                                 |
    |          Stanislav Malyshev <stas@zend.com>                          |
-   |          Dmitry Stogov <dmitry@zend.com>                             |
+   |          Dmitry Stogov <dmitry@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
@@ -46,11 +46,11 @@ typedef struct _zend_accel_hash_entry zend_accel_hash_entry;
 
 struct _zend_accel_hash_entry {
 	zend_ulong             hash_value;
-	char                  *key;
-	uint32_t              key_length;
+	const char            *key;
 	zend_accel_hash_entry *next;
 	void                  *data;
-	zend_bool              indirect;
+	uint32_t               key_length;
+	bool              indirect;
 };
 
 typedef struct _zend_accel_hash {
@@ -66,9 +66,9 @@ void zend_accel_hash_clean(zend_accel_hash *accel_hash);
 
 zend_accel_hash_entry* zend_accel_hash_update(
 		zend_accel_hash        *accel_hash,
-		char                   *key,
+		const char             *key,
 		uint32_t               key_length,
-		zend_bool               indirect,
+		bool               indirect,
 		void                   *data);
 
 void* zend_accel_hash_find(
@@ -81,20 +81,20 @@ zend_accel_hash_entry* zend_accel_hash_find_entry(
 
 void* zend_accel_hash_str_find(
 		zend_accel_hash        *accel_hash,
-		char                   *key,
+		const char             *key,
 		uint32_t               key_length);
 
 zend_accel_hash_entry* zend_accel_hash_str_find_entry(
 		zend_accel_hash        *accel_hash,
-		char                   *key,
+		const char             *key,
 		uint32_t               key_length);
 
 int zend_accel_hash_unlink(
 		zend_accel_hash        *accel_hash,
-		char                   *key,
+		const char             *key,
 		uint32_t               key_length);
 
-static inline zend_bool zend_accel_hash_is_full(zend_accel_hash *accel_hash)
+static inline bool zend_accel_hash_is_full(zend_accel_hash *accel_hash)
 {
 	if (accel_hash->num_entries == accel_hash->max_num_entries) {
 		return 1;

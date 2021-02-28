@@ -13,5 +13,5 @@ try {
     echo $e->getMessage(), "\n";
 }
 ?>
---EXPECTF--
-DOMDocumentFragment::__construct() expects exactly 0 parameters, 1 given
+--EXPECT--
+DOMDocumentFragment::__construct() expects exactly 0 arguments, 1 given

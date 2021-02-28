@@ -6,33 +6,8 @@ var_dump(unserialize('a:2:{i:0;O:9:"exception":1:{s:16:"'."\0".'Exception'."\0".
 var_dump(unserialize('a:2:{i:0;O:9:"exception":1:{s:16:"'."\0".'Exception'."\0".'trace";s:4:"test";}i:1;r:3;}'));
 ?>
 --EXPECTF--
-array(1) {
-  [0]=>
-  object(Exception)#%d (5) {
-    ["message":protected]=>
-    string(0) ""
-    ["string":"Exception":private]=>
-    string(0) ""
-    ["code":protected]=>
-    int(0)
-    ["file":protected]=>
-    string(%d) "%s"
-    ["line":protected]=>
-    int(%d)
-  }
-}
-array(1) {
-  [0]=>
-  object(Exception)#%d (5) {
-    ["message":protected]=>
-    string(0) ""
-    ["string":"Exception":private]=>
-    string(0) ""
-    ["code":protected]=>
-    int(0)
-    ["file":protected]=>
-    string(%d) "%s"
-    ["line":protected]=>
-    int(%d)
-  }
-}
+Fatal error: Uncaught TypeError: Cannot assign string to property Exception::$trace of type array in %s:%d
+Stack trace:
+#0 %s(%d): unserialize('a:2:{i:0;O:9:"e...')
+#1 {main}
+  thrown in %s on line %d

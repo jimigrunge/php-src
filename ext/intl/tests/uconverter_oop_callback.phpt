@@ -2,6 +2,7 @@
 UConverter::convert() w/ Callback Reasons
 --SKIPIF--
 <?php if( !extension_loaded( 'intl' ) ) print 'skip'; ?>
+<?php if (version_compare(INTL_ICU_VERSION, '58.1') >= 0) die('skip for ICU <= 57.1'); ?>
 --FILE--
 <?php
 class MyConverter extends UConverter {
@@ -27,6 +28,7 @@ $c = new MyConverter('ascii', 'utf-8');
 foreach(array("regular", "irregul\xC1\xA1r", "\xC2\xA1unsupported!") as $word) {
   $c->convert($word);
 }
+?>
 --EXPECT--
 toUCallback(REASON_RESET, ...)
 toUCallback(REASON_RESET, ...)

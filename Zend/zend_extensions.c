@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2016 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) Zend Technologies Ltd. (http://www.zend.com)           |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,25 +12,23 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   | Authors: Andi Gutmans <andi@php.net>                                 |
+   |          Zeev Suraski <zeev@php.net>                                 |
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #include "zend_extensions.h"
+#include "zend_system_id.h"
 
 ZEND_API zend_llist zend_extensions;
 ZEND_API uint32_t zend_extension_flags = 0;
+ZEND_API int zend_op_array_extension_handles = 0;
 static int last_resource_number;
 
-int zend_load_extension(const char *path)
+zend_result zend_load_extension(const char *path)
 {
 #if ZEND_EXTENSIONS_SUPPORT
 	DL_HANDLE handle;
-	zend_extension *new_extension;
-	zend_extension_version_info *extension_version_info;
 
 	handle = DL_LOAD(path);
 	if (!handle) {
@@ -43,6 +41,29 @@ int zend_load_extension(const char *path)
 #endif
 		return FAILURE;
 	}
+#ifdef ZEND_WIN32
+	char *err;
+	if (!php_win32_image_compatible(handle, &err)) {
+		zend_error(E_CORE_WARNING, err);
+		return FAILURE;
+	}
+#endif
+	return zend_load_extension_handle(handle, path);
+#else
+	fprintf(stderr, "Extensions are not supported on this platform.\n");
+/* See http://support.microsoft.com/kb/190351 */
+#ifdef ZEND_WIN32
+	fflush(stderr);
+#endif
+	return FAILURE;
+#endif
+}
+
+zend_result zend_load_extension_handle(DL_HANDLE handle, const char *path)
+{
+#if ZEND_EXTENSIONS_SUPPORT
+	zend_extension *new_extension;
+	zend_extension_version_info *extension_version_info;
 
 	extension_version_info = (zend_extension_version_info *) DL_FETCH_SYMBOL(handle, "extension_version_info");
 	if (!extension_version_info) {
@@ -61,7 +82,6 @@ int zend_load_extension(const char *path)
 		DL_UNLOAD(handle);
 		return FAILURE;
 	}
-
 
 	/* allow extension to proclaim compatibility with any Zend version */
 	if (extension_version_info->zend_extension_api_no != ZEND_EXTENSION_API_NO &&(!new_extension->api_no_check || new_extension->api_no_check(ZEND_EXTENSION_API_NO) != SUCCESS)) {
@@ -112,17 +132,10 @@ int zend_load_extension(const char *path)
 #endif
 		DL_UNLOAD(handle);
 		return FAILURE;
-	} else if (zend_get_extension(new_extension->name)) {
-		fprintf(stderr, "Cannot load %s - extension already loaded\n", new_extension->name);
-/* See http://support.microsoft.com/kb/190351 */
-#ifdef PHP_WIN32
-		fflush(stderr);
-#endif
-		DL_UNLOAD(handle);
-		return FAILURE;
 	}
 
-	return zend_register_extension(new_extension, handle);
+	zend_register_extension(new_extension, handle);
+	return SUCCESS;
 #else
 	fprintf(stderr, "Extensions are not supported on this platform.\n");
 /* See http://support.microsoft.com/kb/190351 */
@@ -134,7 +147,7 @@ int zend_load_extension(const char *path)
 }
 
 
-int zend_register_extension(zend_extension *new_extension, DL_HANDLE handle)
+void zend_register_extension(zend_extension *new_extension, DL_HANDLE handle)
 {
 #if ZEND_EXTENSIONS_SUPPORT
 	zend_extension extension;
@@ -163,8 +176,6 @@ int zend_register_extension(zend_extension *new_extension, DL_HANDLE handle)
 	}
 	/*fprintf(stderr, "Loaded %s, version %s\n", extension.name, extension.version);*/
 #endif
-
-	return SUCCESS;
 }
 
 
@@ -177,6 +188,7 @@ static void zend_extension_shutdown(zend_extension *extension)
 #endif
 }
 
+/* int return due to zend linked list API */
 static int zend_extension_startup(zend_extension *extension)
 {
 #if ZEND_EXTENSIONS_SUPPORT
@@ -191,19 +203,18 @@ static int zend_extension_startup(zend_extension *extension)
 }
 
 
-int zend_startup_extensions_mechanism()
+void zend_startup_extensions_mechanism()
 {
 	/* Startup extensions mechanism */
 	zend_llist_init(&zend_extensions, sizeof(zend_extension), (void (*)(void *)) zend_extension_dtor, 1);
+	zend_op_array_extension_handles = 0;
 	last_resource_number = 0;
-	return SUCCESS;
 }
 
 
-int zend_startup_extensions()
+void zend_startup_extensions()
 {
 	zend_llist_apply_with_del(&zend_extensions, (int (*)(void *)) zend_extension_startup);
-	return SUCCESS;
 }
 
 
@@ -244,16 +255,21 @@ ZEND_API void zend_extension_dispatch_message(int message, void *arg)
 }
 
 
-ZEND_API int zend_get_resource_handle(zend_extension *extension)
+ZEND_API int zend_get_resource_handle(const char *module_name)
 {
 	if (last_resource_number<ZEND_MAX_RESERVED_RESOURCES) {
-		extension->resource_number = last_resource_number;
+		zend_add_system_entropy(module_name, "zend_get_resource_handle", &last_resource_number, sizeof(int));
 		return last_resource_number++;
 	} else {
 		return -1;
 	}
 }
 
+ZEND_API int zend_get_op_array_extension_handle(const char *module_name)
+{
+	zend_add_system_entropy(module_name, "zend_get_op_array_extension_handle", &zend_op_array_extension_handles, sizeof(int));
+	return zend_op_array_extension_handles++;
+}
 
 ZEND_API zend_extension *zend_get_extension(const char *extension_name)
 {
@@ -320,11 +336,3 @@ ZEND_API size_t zend_extensions_op_array_persist(zend_op_array *op_array, void *
 	}
 	return 0;
 }
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * indent-tabs-mode: t
- * End:
- */

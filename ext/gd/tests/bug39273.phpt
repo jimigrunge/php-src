@@ -2,7 +2,7 @@
 Bug #37360 (gdimagecreatefromgif, bad image sizes)
 --SKIPIF--
 <?php
-	if (!extension_loaded('gd')) die("skip gd extension not available\n");
+    if (!extension_loaded('gd')) die("skip gd extension not available\n");
 ?>
 --FILE--
 <?php
@@ -27,5 +27,5 @@ imagesavealpha($img, 1);
 $c = imagecolorat($img, 0,0);
 printf("%X", $c);
 ?>
---EXPECTF--
+--EXPECT--
 32FF0000

@@ -1,8 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,6 +20,7 @@
 #define PHPDBG_CMD_H
 
 #include "TSRM.h"
+#include "zend_generators.h"
 
 /* {{{ Command and Parameter */
 enum {
@@ -82,10 +81,6 @@ struct _phpdbg_param {
 	(v)->top = NULL; \
 } while(0)
 
-#ifndef YYSTYPE
-#define YYSTYPE phpdbg_param_t
-#endif
-
 #define PHPDBG_ASYNC_SAFE 1
 
 typedef int (*phpdbg_command_handler_t)(const phpdbg_param_t*);
@@ -101,7 +96,7 @@ struct _phpdbg_command_t {
 	const phpdbg_command_t *subs;       /* Sub Commands */
 	char *args;                         /* Argument Spec */
 	const phpdbg_command_t *parent;     /* Parent Command */
-	zend_bool flags;                    /* General flags */
+	bool flags;                    /* General flags */
 };
 /* }}} */
 
@@ -113,6 +108,7 @@ struct _phpdbg_command_t {
 
 typedef struct {
 	int num;
+	zend_generator *generator;
 	zend_execute_data *execute_data;
 } phpdbg_frame_t;
 /* }}} */
@@ -129,8 +125,8 @@ typedef struct {
 /*
 * Input Management
 */
-PHPDBG_API char* phpdbg_read_input(char *buffered);
-PHPDBG_API void phpdbg_destroy_input(char**);
+PHPDBG_API char *phpdbg_read_input(const char *buffered);
+PHPDBG_API void phpdbg_destroy_input(char **input);
 PHPDBG_API int phpdbg_ask_user_permission(const char *question);
 
 /**
@@ -140,7 +136,7 @@ PHPDBG_API void phpdbg_stack_push(phpdbg_param_t *stack, phpdbg_param_t *param);
 PHPDBG_API void phpdbg_stack_separate(phpdbg_param_t *param);
 PHPDBG_API const phpdbg_command_t *phpdbg_stack_resolve(const phpdbg_command_t *commands, const phpdbg_command_t *parent, phpdbg_param_t **top);
 PHPDBG_API int phpdbg_stack_verify(const phpdbg_command_t *command, phpdbg_param_t **stack);
-PHPDBG_API int phpdbg_stack_execute(phpdbg_param_t *stack, zend_bool allow_async_unsafe);
+PHPDBG_API int phpdbg_stack_execute(phpdbg_param_t *stack, bool allow_async_unsafe);
 PHPDBG_API void phpdbg_stack_free(phpdbg_param_t *stack);
 
 /*
@@ -148,7 +144,7 @@ PHPDBG_API void phpdbg_stack_free(phpdbg_param_t *stack);
 */
 PHPDBG_API void phpdbg_clear_param(phpdbg_param_t*);
 PHPDBG_API void phpdbg_copy_param(const phpdbg_param_t*, phpdbg_param_t*);
-PHPDBG_API zend_bool phpdbg_match_param(const phpdbg_param_t *, const phpdbg_param_t *);
+PHPDBG_API bool phpdbg_match_param(const phpdbg_param_t *, const phpdbg_param_t *);
 PHPDBG_API zend_ulong phpdbg_hash_param(const phpdbg_param_t *);
 PHPDBG_API const char* phpdbg_get_param_type(const phpdbg_param_t*);
 PHPDBG_API char* phpdbg_param_tostring(const phpdbg_param_t *param, char **pointer);

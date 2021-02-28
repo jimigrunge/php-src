@@ -1,8 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 7                                                        |
-  +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2016 The PHP Group                                |
+  | Copyright (c) The PHP Group                                          |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -14,10 +12,9 @@
   +----------------------------------------------------------------------+
   | Authors: Brad Lafountain <rodif_bl@yahoo.com>                        |
   |          Shane Caraveo <shane@caraveo.com>                           |
-  |          Dmitry Stogov <dmitry@zend.com>                             |
+  |          Dmitry Stogov <dmitry@php.net>                              |
   +----------------------------------------------------------------------+
 */
-/* $Id$ */
 
 #ifndef PHP_HTTP_H
 #define PHP_HTTP_H
@@ -32,8 +29,8 @@ int make_http_soap_request(zval        *this_ptr,
 int proxy_authentication(zval* this_ptr, smart_str* soap_headers);
 int basic_authentication(zval* this_ptr, smart_str* soap_headers);
 void http_context_headers(php_stream_context* context,
-                          zend_bool has_authorization,
-                          zend_bool has_proxy_authorization,
-                          zend_bool has_cookies,
+                          bool has_authorization,
+                          bool has_proxy_authorization,
+                          bool has_cookies,
                           smart_str* soap_headers);
 #endif

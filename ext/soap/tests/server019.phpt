@@ -1,10 +1,10 @@
 --TEST--
 SOAP Server 19: compressed request (gzip)
 --SKIPIF--
-<?php 
-	if (php_sapi_name()=='cli') echo 'skip';
-	require_once('skipif.inc'); 
-	if (!extension_loaded('zlib')) die('skip zlib extension not available');
+<?php
+    if (php_sapi_name()=='cli') echo 'skip';
+    require_once('skipif.inc');
+    if (!extension_loaded('zlib')) die('skip zlib extension not available');
 ?>
 --INI--
 precision=14

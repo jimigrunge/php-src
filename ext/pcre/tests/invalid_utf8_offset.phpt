@@ -3,19 +3,19 @@ preg_replace() and invalid UTF8 offset
 --SKIPIF--
 <?php
 if (@preg_match('/./u', '') === false) {
-	die('skip no utf8 support in PCRE library');
+    die('skip no utf8 support in PCRE library');
 }
 ?>
 --FILE--
 <?php
 
-$string = b"\xc3\xa9 uma string utf8 bem formada";
+$string = "\xc3\xa9 uma string utf8 bem formada";
 
-var_dump(preg_match(b'~.*~u', $string, $m, 0, 1));
+var_dump(preg_match('~.*~u', $string, $m, 0, 1));
 var_dump($m);
 var_dump(preg_last_error() == PREG_BAD_UTF8_OFFSET_ERROR);
 
-var_dump(preg_match(b'~.*~u', $string, $m, 0, 2));
+var_dump(preg_match('~.*~u', $string, $m, 0, 2));
 var_dump($m);
 var_dump(preg_last_error() == PREG_NO_ERROR);
 

@@ -4,12 +4,11 @@ Bug #68479 (Escape parameter missing from SplFileObject::fputcsv)
 <?php
 
 $method = new ReflectionMethod('SplFileObject', 'fputcsv');
-$params = $method->getParameters(); 
+$params = $method->getParameters();
 var_dump($params);
 
 ?>
-===DONE===
---EXPECTF--
+--EXPECT--
 array(4) {
   [0]=>
   object(ReflectionParameter)#2 (1) {
@@ -19,7 +18,7 @@ array(4) {
   [1]=>
   object(ReflectionParameter)#3 (1) {
     ["name"]=>
-    string(9) "delimiter"
+    string(9) "separator"
   }
   [2]=>
   object(ReflectionParameter)#4 (1) {
@@ -32,4 +31,3 @@ array(4) {
     string(6) "escape"
   }
 }
-===DONE===

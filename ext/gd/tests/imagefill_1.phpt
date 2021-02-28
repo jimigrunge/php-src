@@ -1,13 +1,13 @@
 --TEST--
 imagefill() infinite loop with wrong color index
 --SKIPIF--
-<?php 
-	if (!extension_loaded('gd')) {
-		die("skip gd extension not available.");
-	}
-	if (!function_exists("imagefttext")) {
-		die("skip imagefttext() not available.");
-	}
+<?php
+    if (!extension_loaded('gd')) {
+        die("skip gd extension not available.");
+    }
+    if (!function_exists("imagefttext")) {
+        die("skip imagefttext() not available.");
+    }
 ?>
 --FILE--
 <?php

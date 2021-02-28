@@ -1,5 +1,3 @@
-
-	/* $Id: fpm_status.h 312263 2011-06-18 17:46:16Z felipe $ */
 	/* (c) 2009 Jerome Loyet */
 
 #ifndef FPM_SCOREBOARD_H
@@ -65,6 +63,7 @@ struct fpm_scoreboard_s {
 	unsigned int nprocs;
 	int free_proc;
 	unsigned long int slow_rq;
+	struct fpm_scoreboard_s *shared;
 	struct fpm_scoreboard_proc_s *procs[];
 };
 

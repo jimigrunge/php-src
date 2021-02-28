@@ -1,8 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,13 +14,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #include "php.h"
 #include "php_session.h"
 #include "mod_user.h"
 
-ps_module ps_mod_user = {
+const ps_module ps_mod_user = {
 	PS_MOD_UPDATE_TIMESTAMP(user)
 };
 
@@ -30,12 +26,20 @@ ps_module ps_mod_user = {
 static void ps_call_handler(zval *func, int argc, zval *argv, zval *retval)
 {
 	int i;
-	if (call_user_function(EG(function_table), NULL, func, retval, argc, argv) == FAILURE) {
+	if (PS(in_save_handler)) {
+		PS(in_save_handler) = 0;
+		ZVAL_UNDEF(retval);
+		php_error_docref(NULL, E_WARNING, "Cannot call session save handler in a recursive manner");
+		return;
+	}
+	PS(in_save_handler) = 1;
+	if (call_user_function(NULL, NULL, func, retval, argc, argv) == FAILURE) {
 		zval_ptr_dtor(retval);
 		ZVAL_UNDEF(retval);
 	} else if (Z_ISUNDEF_P(retval)) {
 		ZVAL_NULL(retval);
 	}
+	PS(in_save_handler) = 0;
 	for (i = 0; i < argc; i++) {
 		zval_ptr_dtor(&argv[i]);
 	}
@@ -54,15 +58,18 @@ static void ps_call_handler(zval *func, int argc, zval *argv, zval *retval)
 		} else if (Z_TYPE(retval) == IS_FALSE) { \
 			ret = FAILURE; \
         }  else if ((Z_TYPE(retval) == IS_LONG) && (Z_LVAL(retval) == -1)) { \
-			/* BC for clever users - Deprecate me */ \
+			if (!EG(exception)) { \
+				php_error_docref(NULL, E_DEPRECATED, "Session callback must have a return value of type bool, %s returned", zend_zval_type_name(&retval)); \
+			} \
 			ret = FAILURE; \
 		} else if ((Z_TYPE(retval) == IS_LONG) && (Z_LVAL(retval) == 0)) { \
-			/* BC for clever users - Deprecate me */ \
+			if (!EG(exception)) { \
+				php_error_docref(NULL, E_DEPRECATED, "Session callback must have a return value of type bool, %s returned", zend_zval_type_name(&retval)); \
+			} \
 			ret = SUCCESS; \
 		} else { \
 			if (!EG(exception)) { \
-				php_error_docref(NULL, E_WARNING, \
-				                 "Session callback expects true/false return value"); \
+				zend_type_error("Session callback must have a return value of type bool, %s returned", zend_zval_type_name(&retval)); \
 			} \
 			ret = FAILURE; \
 			zval_ptr_dtor(&retval); \
@@ -76,8 +83,7 @@ PS_OPEN_FUNC(user)
 	STDVARS;
 
 	if (Z_ISUNDEF(PSF(open))) {
-		php_error_docref(NULL, E_WARNING,
-			"user session functions not defined");
+		php_error_docref(NULL, E_WARNING, "User session functions are not defined");
 
 		return FAILURE;
 	}
@@ -102,7 +108,7 @@ PS_OPEN_FUNC(user)
 
 PS_CLOSE_FUNC(user)
 {
-	zend_bool bailout = 0;
+	bool bailout = 0;
 	STDVARS;
 
 	if (!PS(mod_user_implemented)) {
@@ -176,13 +182,22 @@ PS_DESTROY_FUNC(user)
 PS_GC_FUNC(user)
 {
 	zval args[1];
-	STDVARS;
+	zval retval;
 
 	ZVAL_LONG(&args[0], maxlifetime);
 
 	ps_call_handler(&PSF(gc), 1, args, &retval);
 
-	FINISH;
+	if (Z_TYPE(retval) == IS_LONG) {
+		*nrdels = Z_LVAL(retval);
+	} else if (Z_TYPE(retval) == IS_TRUE) {
+		/* This is for older API compatibility */
+		*nrdels = 1;
+	} else {
+		/* Anything else is some kind of error */
+		*nrdels = -1; // Error
+	}
+	return *nrdels;
 }
 
 PS_CREATE_SID_FUNC(user)
@@ -200,12 +215,12 @@ PS_CREATE_SID_FUNC(user)
 			}
 			zval_ptr_dtor(&retval);
 		} else {
-			php_error_docref(NULL, E_ERROR, "No session id returned by function");
+			zend_throw_error(NULL, "No session id returned by function");
 			return NULL;
 		}
 
 		if (!id) {
-			php_error_docref(NULL, E_ERROR, "Session id must be a string");
+			zend_throw_error(NULL, "Session id must be a string");
 			return NULL;
 		}
 
@@ -251,12 +266,3 @@ PS_UPDATE_TIMESTAMP_FUNC(user)
 
 	FINISH;
 }
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: sw=4 ts=4 fdm=marker
- * vim<600: sw=4 ts=4
- */

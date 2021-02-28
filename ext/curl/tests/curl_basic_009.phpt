@@ -7,7 +7,7 @@ TestFest 2009 - AFUP - Perrick Penet <perrick@noparking.net>
 --FILE--
 <?php
 
-$url = uniqid()."://www.".uniqid().".".uniqid();
+$url = substr(uniqid(),0,7)."://www.".uniqid().".".uniqid();
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $url);
 
@@ -19,5 +19,5 @@ curl_close($ch);
 
 ?>
 --EXPECTF--
-%unicode|string%(%d) "%Srotocol%s"
+string(%d) "%Srotocol%s"
 int(1)

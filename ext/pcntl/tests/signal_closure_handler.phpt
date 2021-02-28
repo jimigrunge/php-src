@@ -2,10 +2,10 @@
 Closures as a signal handler
 --SKIPIF--
 <?php
-	if (!extension_loaded("pcntl")) print "skip"; 
-	elseif (!function_exists("pcntl_signal")) print "skip pcntl_signal() not available";
-	elseif (!function_exists("posix_kill")) print "skip posix_kill() not available";
-	elseif (!function_exists("posix_getpid")) print "skip posix_getpid() not available";
+    if (!extension_loaded("pcntl")) print "skip";
+    elseif (!function_exists("pcntl_signal")) print "skip pcntl_signal() not available";
+    elseif (!function_exists("posix_kill")) print "skip posix_kill() not available";
+    elseif (!function_exists("posix_getpid")) print "skip posix_getpid() not available";
 ?>
 --FILE--
 <?php
@@ -19,7 +19,7 @@ $i = 0; // dummy
 echo "Done!\n";
 
 ?>
---EXPECTF--
+--EXPECT--
 Start!
 Signal handler called!
 Done!

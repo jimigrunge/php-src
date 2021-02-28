@@ -1,9 +1,9 @@
 --TEST--
-Bug #46806 (mb_wtrimwidth cutting to early)
+Bug #46806 (mb_strimwidth cutting too early)
 --CREDITS--
 Sebastian Schürmann
 sebs@php.net
-Testfest 2009 
+Testfest 2009
 --SKIPIF--
 <?php if (!extension_loaded("mbstring")) die("skip mbstring is not available"); ?>
 --FILE--

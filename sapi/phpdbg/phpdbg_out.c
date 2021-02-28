@@ -1,8 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 7                                                        |
-   +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -114,13 +112,8 @@ typedef struct buf_area buffy;
  */
 #define PREFIX( str, length, ch )	 *--str = ch ; length++ ; has_prefix = YES
 
-
-#ifdef HAVE_LOCALE_H
 #include <locale.h>
 #define LCONV_DECIMAL_POINT (*lconv->decimal_point)
-#else
-#define LCONV_DECIMAL_POINT '.'
-#endif
 #define NUL '\0'
 #define S_NULL "(null)"
 #define S_NULL_LEN 6
@@ -129,7 +122,7 @@ typedef struct buf_area buffy;
 /*
  * Do format conversion placing the output in buffer
  */
-static int format_converter(register buffy *odp, const char *fmt, zend_bool escape_xml, va_list ap) {
+static int format_converter(register buffy *odp, const char *fmt, bool escape_xml, va_list ap) {
 	char *sp;
 	char *bep;
 	int cc = 0;
@@ -137,7 +130,7 @@ static int format_converter(register buffy *odp, const char *fmt, zend_bool esca
 
 	char *s = NULL, *free_s = NULL;
 	size_t s_len;
-	zend_bool free_zcopy;
+	bool free_zcopy;
 	zval *zvp, zcopy;
 
 	int min_width = 0;
@@ -155,9 +148,7 @@ static int format_converter(register buffy *odp, const char *fmt, zend_bool esca
 	char num_buf[NUM_BUF_SIZE];
 	char char_buf[2];			/* for printing %% and %<unknown> */
 
-#ifdef HAVE_LOCALE_H
 	struct lconv *lconv = NULL;
-#endif
 
 	/*
 	 * Flag variables
@@ -589,7 +580,7 @@ static int format_converter(register buffy *odp, const char *fmt, zend_bool esca
 
 				case 'r':
 					if (PHPDBG_G(req_id)) {
-						s_len = spprintf(&s, 0, "req=\"%lu\"", PHPDBG_G(req_id));
+						s_len = spprintf(&s, 0, "req=\"" ZEND_ULONG_FMT "\"", PHPDBG_G(req_id));
 						free_s = s;
 					} else {
 						s = "";
@@ -621,11 +612,10 @@ static int format_converter(register buffy *odp, const char *fmt, zend_bool esca
 						s = "INF";
 						s_len = 3;
 					} else {
-#ifdef HAVE_LOCALE_H
 						if (!lconv) {
 							lconv = localeconv();
 						}
-#endif
+
 						s = php_conv_fp((*fmt == 'f')?'F':*fmt, fp_num, alternate_form,
 						 (adjust_precision == NO) ? FLOAT_DIGITS : precision,
 						 (*fmt == 'f')?LCONV_DECIMAL_POINT:'.',
@@ -678,11 +668,10 @@ static int format_converter(register buffy *odp, const char *fmt, zend_bool esca
 					/*
 					 * * We use &num_buf[ 1 ], so that we have room for the sign
 					 */
-#ifdef HAVE_LOCALE_H
 					if (!lconv) {
 						lconv = localeconv();
 					}
-#endif
+
 					s = php_gcvt(fp_num, precision, (*fmt=='H' || *fmt == 'k') ? '.' : LCONV_DECIMAL_POINT, (*fmt == 'G' || *fmt == 'H')?'E':'e', &num_buf[1]);
 					if (*s == '-') {
 						prefix_char = *s++;
@@ -799,7 +788,7 @@ fmt_error:
 			if (adjust_width && adjust == LEFT && min_width > s_len)
 				PAD(min_width, s_len, pad_char);
 			if (free_zcopy) {
-				zval_dtor(&zcopy);
+				zval_ptr_dtor_str(&zcopy);
 			}
 		}
 skip_output:
@@ -814,7 +803,7 @@ skip_output:
 	return (cc);
 }
 
-static void strx_printv(int *ccp, char *buf, size_t len, const char *format, zend_bool escape_xml, va_list ap) {
+static void strx_printv(int *ccp, char *buf, size_t len, const char *format, bool escape_xml, va_list ap) {
 	buffy od;
 	int cc;
 
@@ -843,14 +832,14 @@ static void strx_printv(int *ccp, char *buf, size_t len, const char *format, zen
 	}
 }
 
-static int phpdbg_xml_vsnprintf(char *buf, size_t len, const char *format, zend_bool escape_xml, va_list ap) {
+static int phpdbg_xml_vsnprintf(char *buf, size_t len, const char *format, bool escape_xml, va_list ap) {
 	int cc;
 
 	strx_printv(&cc, buf, len, format, escape_xml, ap);
 	return (cc);
 }
 
-PHPDBG_API int phpdbg_xml_vasprintf(char **buf, const char *format, zend_bool escape_xml, va_list ap) {
+PHPDBG_API int phpdbg_xml_vasprintf(char **buf, const char *format, bool escape_xml, va_list ap) {
 	va_list ap2;
 	int cc;
 
@@ -861,28 +850,16 @@ PHPDBG_API int phpdbg_xml_vasprintf(char **buf, const char *format, zend_bool es
 	*buf = NULL;
 
 	if (cc >= 0) {
-		if ((*buf = emalloc(++cc)) != NULL) {
-			if ((cc = phpdbg_xml_vsnprintf(*buf, cc, format, escape_xml, ap)) < 0) {
-				efree(*buf);
-				*buf = NULL;
-			}
+		*buf = emalloc(++cc);
+		if ((cc = phpdbg_xml_vsnprintf(*buf, cc, format, escape_xml, ap)) < 0) {
+			efree(*buf);
+			*buf = NULL;
 		}
 	}
 
 	return cc;
 }
 /* copy end */
-
-PHPDBG_API int _phpdbg_xml_asprintf(char **buf, const char *format, zend_bool escape_xml, ...) {
-	int ret;
-	va_list va;
-
-	va_start(va, escape_xml);
-	ret = phpdbg_xml_vasprintf(buf, format, escape_xml, va);
-	va_end(va);
-
-	return ret;
-}
 
 PHPDBG_API int _phpdbg_asprintf(char **buf, const char *format, ...) {
 	int ret;
@@ -1040,9 +1017,8 @@ static int phpdbg_process_print(int fd, int type, const char *tag, const char *m
 				} else {
 					phpdbg_mixed_write(fd, msg, msglen);
 				}
-				return msglen;
 			}
-		break;
+			return msglen;
 
 		/* no formatting on logging output */
 		case P_LOG:
@@ -1056,6 +1032,7 @@ static int phpdbg_process_print(int fd, int type, const char *tag, const char *m
 				}
 			}
 			break;
+		EMPTY_SWITCH_DEFAULT_CASE()
 	}
 
 	if (PHPDBG_G(flags) & PHPDBG_WRITE_XML) {
@@ -1063,7 +1040,7 @@ static int phpdbg_process_print(int fd, int type, const char *tag, const char *m
 
 		if (PHPDBG_G(req_id)) {
 			char *xmlbuf = NULL;
-			xmllen = phpdbg_asprintf(&xmlbuf, "req=\"%lu\" %.*s", PHPDBG_G(req_id), xmllen, xml);
+			xmllen = phpdbg_asprintf(&xmlbuf, "req=\"" ZEND_ULONG_FMT "\" %.*s", PHPDBG_G(req_id), xmllen, xml);
 			xml = xmlbuf;
 		}
 		if (msgout) {
@@ -1160,7 +1137,7 @@ PHPDBG_API void phpdbg_free_err_buf(void) {
 	}
 }
 
-PHPDBG_API void phpdbg_activate_err_buf(zend_bool active) {
+PHPDBG_API void phpdbg_activate_err_buf(bool active) {
 	PHPDBG_G(err_buf).active = active;
 }
 

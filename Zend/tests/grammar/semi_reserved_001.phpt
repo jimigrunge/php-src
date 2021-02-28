@@ -56,6 +56,7 @@ class Obj
     function switch(){ echo __METHOD__, PHP_EOL; }
     function yield(){ echo __METHOD__, PHP_EOL; }
     function function(){ echo __METHOD__, PHP_EOL; }
+    function fn(){ echo __METHOD__, PHP_EOL; }
     function if(){ echo __METHOD__, PHP_EOL; }
     function endswitch(){ echo __METHOD__, PHP_EOL; }
     function finally(){ echo __METHOD__, PHP_EOL; }
@@ -80,7 +81,6 @@ class Obj
     function __FILE__(){ echo __METHOD__, PHP_EOL; }
     function __DIR__(){ echo __METHOD__, PHP_EOL; }
     function __NAMESPACE__(){ echo __METHOD__, PHP_EOL; }
-    function __halt_compiler(){ echo __METHOD__, PHP_EOL; }
 }
 
 $obj = new Obj;
@@ -136,6 +136,7 @@ $obj->continue();
 $obj->switch();
 $obj->yield();
 $obj->function();
+$obj->fn();
 $obj->if();
 $obj->endswitch();
 $obj->finally();
@@ -160,11 +161,10 @@ $obj->__LINE__();
 $obj->__FILE__();
 $obj->__DIR__();
 $obj->__NAMESPACE__();
-$obj->__halt_compiler();
 
 echo "\nDone\n";
-
---EXPECTF--
+?>
+--EXPECT--
 Obj::empty
 Obj::callable
 Obj::class
@@ -216,6 +216,7 @@ Obj::continue
 Obj::switch
 Obj::yield
 Obj::function
+Obj::fn
 Obj::if
 Obj::endswitch
 Obj::finally
@@ -240,6 +241,5 @@ Obj::__LINE__
 Obj::__FILE__
 Obj::__DIR__
 Obj::__NAMESPACE__
-Obj::__halt_compiler
 
 Done

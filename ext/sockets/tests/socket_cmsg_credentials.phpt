@@ -8,15 +8,20 @@ die('skip sockets extension not available.');
 if (strtolower(substr(PHP_OS, 0, 3)) == 'win') {
 die('skip not for Microsoft Windows');
 }
+if (strtolower(substr(PHP_OS, 0, 3)) == 'aix') {
+die('skip not for AIX');
+}
+if (!defined('SO_PASSCRED')) {
+die('skip SO_PASSCRED is not defined');
+}
 --CLEAN--
 <?php
-$path = __DIR__ . "/unix_sock";
+$path = __DIR__ . "/socket_cmsg_credentials.sock";
 @unlink($path);
-
 --FILE--
 <?php
 include __DIR__."/mcast_helpers.php.inc";
-$path = __DIR__ . "/unix_sock";
+$path = __DIR__ . "/socket_cmsg_credentials.sock";
 
 @unlink($path);
 
@@ -51,12 +56,14 @@ print_r($data);
 
 $pid = getmypid();
 var_dump($data['control'][0]['data']['pid'] === $pid);
-
+?>
 --EXPECTF--
 creating send socket
-resource(%d) of type (Socket)
+object(Socket)#%d (0) {
+}
 creating receive socket
-resource(%d) of type (Socket)
+object(Socket)#%d (0) {
+}
 bool(true)
 int(5)
 Array
